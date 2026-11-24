@@ -160,6 +160,26 @@ describe("createWeftSidebarIndicators", () => {
     expect(shown(tick).top).toBeCloseTo(40 + 11, 0);
   });
 
+  it("leaves no fading copy when a hidden hover tick crosses into another folder", async () => {
+    using harness = mount(6);
+    const { list, rows, indicator } = harness;
+    for (let index = 0; index < 3; index++) rows[index]!.dataset.sidebarParent = "folder:a";
+    for (let index = 3; index < 6; index++) rows[index]!.dataset.sidebarParent = "folder:b";
+    rows[0]!.setAttribute("aria-current", "page");
+    await vi.waitFor(() => {
+      expect(indicator("selected-tick").style.opacity).toBe("1");
+    });
+    rows[0]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(getComputedStyle(indicator("hover-tick")).opacity).toBe("0");
+    });
+    rows[4]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    expect(
+      list.querySelectorAll('[data-weft-ghost][data-weft-indicator="hover-tick"]'),
+    ).toHaveLength(0);
+    expect(indicator("hover-tick").style.opacity).toBe("1");
+  });
+
   it("fades out and fades in without stretching when moving across different project folders", async () => {
     using harness = mount(6);
     const { list, rows, indicator } = harness;

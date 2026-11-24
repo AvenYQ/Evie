@@ -283,6 +283,23 @@ describe("resolveAllAgentUsageCards", () => {
     expect(cardsFor("unsupported").map((card) => card.instanceId)).toEqual(["codex"]);
   });
 
+  it("shows nothing for a current account that has no subscription limits", () => {
+    const cards = resolveAllAgentUsageCards({
+      providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+      model: null,
+      providers: [
+        makeProvider({
+          id: "claudeAgent",
+          driver: "claudeAgent",
+          usageLimits: { checkedAt, windows: [], unavailable: { reason: "unsupported" } },
+        }),
+      ],
+      sources: [],
+      now,
+    });
+    expect(cards).toEqual([]);
+  });
+
   it("resolves pooled hub limits for a custom-endpoint provider", () => {
     const pooledClaude = makeProvider({
       id: "claudeAgent",

@@ -169,17 +169,17 @@ html.dark [data-thread-details-panel] [data-thread-details-card] {
     0 4px 12px -2px rgb(0 0 0 / 24%) !important;
 }
 
-/* The inline card arrives instead of popping in. */
+/* The inline card arrives instead of popping in. An animation, not a transition, so the
+   stock top transition (on only while the find bar is open) stays as it is. */
 @media (prefers-reduced-motion: no-preference) {
   html [data-thread-details-panel="inline"] {
-    transition:
-      opacity var(--weft-dur-state) var(--weft-ease-out),
-      translate var(--weft-dur-layout) var(--weft-ease-out),
-      top var(--weft-dur-hover) ease-out;
-    @starting-style {
-      opacity: 0;
-      translate: 6px 0;
-    }
+    animation: weft-details-in var(--weft-dur-layout) var(--weft-ease-out) both;
+  }
+}
+@keyframes weft-details-in {
+  from {
+    opacity: 0;
+    translate: 6px 0;
   }
 }
 
@@ -480,6 +480,11 @@ html.dark [data-weft-usage] {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+[data-weft-usage] [data-weft-lg="sub"][data-wrap="true"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 [data-weft-usage] [data-weft-lg="val"] {

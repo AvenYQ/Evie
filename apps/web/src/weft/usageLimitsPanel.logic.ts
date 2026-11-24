@@ -122,8 +122,9 @@ export function resolveAllAgentUsageCards(input: {
   readonly providers: readonly ServerProvider[] | undefined;
   readonly sources: UsageLimitSourceSnapshots | undefined;
   readonly now: number;
+  readonly resolve?: Parameters<typeof limitsNotice>[1];
 }): readonly WeftAgentUsageCard[] {
-  const { providerInstanceId = null, model = null, providers, sources = [], now } = input;
+  const { providerInstanceId = null, model = null, providers, sources = [], now, resolve } = input;
   if (!providers || providers.length === 0) return [];
   const readable: WeftAgentUsageCard[] = [];
   let currentUnavailable: WeftAgentUsageCard | null = null;
@@ -173,11 +174,13 @@ export function resolveAllAgentUsageCards(input: {
         };
       });
     } else {
-      const notice = limitsNotice(resolved.limits);
+      const notice = limitsNotice(resolved.limits, resolve);
       if (notice !== null) {
         unavailableNotice = notice;
         if (isCurrent && resolved.limits.unavailable?.reason === "probeFailed")
           currentFailed = true;
+        // An account without subscription limits has nothing to show.
+        if (resolved.limits.unavailable?.reason === "unsupported") continue;
       } else {
         windows = resolved.limits.windows.map((window) => {
           const left = remainingPercent(window);

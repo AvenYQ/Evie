@@ -31,10 +31,12 @@ function buildSubtitle(
   gt: ReturnType<typeof useGT>,
 ): string {
   if (card.unavailableNotice !== null) return card.unavailableNotice;
-  if (card.isCurrent && modelName) return modelName;
-  // Describes the big number on the right: which window it is and when that window resets.
+  // Names the window behind the big number on the right, and when it resets. The current
+  // agent leads with its model; its windows' reset times are in the open drawer below.
   const parts: string[] = [];
+  if (card.isCurrent && modelName) parts.push(modelName);
   if (card.primary) parts.push(card.primary.label);
+  if (card.isCurrent && modelName) return parts.join(" · ");
   const reset = formatShortReset(card.primary, messages);
   if (reset) {
     parts.push(gt("Resets in {duration}", { duration: reset }));
@@ -43,8 +45,17 @@ function buildSubtitle(
 }
 
 function UsageTube({ window, label }: { window: WeftUsageWindow; label: string }) {
+  const gt = useGT();
+  const timeLeft =
+    window.timeLeftPercent === null
+      ? null
+      : gt("{timeLeft}% of the window left", { timeLeft: window.timeLeftPercent });
   return (
-    <div data-weft-lg="tube" role="img" aria-label={label}>
+    <div
+      data-weft-lg="tube"
+      role="img"
+      aria-label={timeLeft === null ? label : `${label} · ${timeLeft}`}
+    >
       <span
         data-weft-lg="tube-fill"
         style={{
@@ -89,11 +100,16 @@ export function WeftUsageLimitsSection({
     providers,
     sources,
     now,
+    resolve: messages,
   });
 
   // Keyed by `${providerInstanceId}:${instanceId}` so switching agents automatically resets to
   // "current agent expanded, other agents collapsed" without a syncing effect.
-  const [manualOpenByKey, setManualOpenByKey] = useState<Readonly<Record<string, boolean>>>({});
+  const [openByScope, setOpenByScope] = useState<
+    Readonly<Record<string, { readonly current?: boolean; readonly other?: string | null }>>
+  >({});
+  const scope = providerInstanceId ?? "";
+  const scopeOpen = openByScope[scope] ?? {};
   const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
 
   // Upgrade the enclosing floating right card into Integration 1 Liquid Glass with hover-only caustic glare.
@@ -163,9 +179,10 @@ export function WeftUsageLimitsSection({
 
         <div data-weft-lg="stack">
           {cards.map((card) => {
-            const toggleKey = `${providerInstanceId ?? ""}:${card.instanceId}`;
             const canExpand = card.windows.length > 0;
-            const isOpen = canExpand && (manualOpenByKey[toggleKey] ?? card.isCurrent);
+            const isOpen =
+              canExpand &&
+              (card.isCurrent ? (scopeOpen.current ?? true) : scopeOpen.other === card.instanceId);
             const primary = card.primary;
             const tone = primary?.tone ?? "ok";
             const drawerId = `weft-usage-drawer-${card.instanceId}`;
@@ -192,7 +209,12 @@ export function WeftUsageLimitsSection({
                         </span>
                       ) : null}
                     </div>
-                    <div data-weft-lg="sub">{buildSubtitle(card, modelName, messages, gt)}</div>
+                    <div
+                      data-weft-lg="sub"
+                      data-wrap={card.unavailableNotice !== null ? "true" : undefined}
+                    >
+                      {buildSubtitle(card, modelName, messages, gt)}
+                    </div>
                   </div>
                   {primary !== null ? (
                     <div data-weft-lg="val">
@@ -237,17 +259,16 @@ export function WeftUsageLimitsSection({
                     aria-expanded={isOpen}
                     aria-controls={drawerId}
                     onClick={() => {
-                      setManualOpenByKey((current) => {
-                        const next = { ...current, [toggleKey]: !isOpen };
-                        // Opening another agent closes the one opened before it; the
-                        // current agent keeps its own state.
-                        if (!isOpen && !card.isCurrent) {
-                          for (const other of cards) {
-                            if (other.isCurrent || other.instanceId === card.instanceId) continue;
-                            delete next[`${providerInstanceId ?? ""}:${other.instanceId}`];
-                          }
-                        }
-                        return next;
+                      // At most one other agent is open; opening another replaces it.
+                      setOpenByScope((current) => {
+                        const state = current[scope] ?? {};
+                        const next = card.isCurrent
+                          ? { ...state, current: !(state.current ?? true) }
+                          : {
+                              ...state,
+                              other: state.other === card.instanceId ? null : card.instanceId,
+                            };
+                        return { ...current, [scope]: next };
                       });
                     }}
                   >

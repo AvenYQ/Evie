@@ -145,7 +145,7 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
     ghosts.clear();
   };
 
-  const spawnFadeOutGhost = (from: Sample, left: number, width: number) => {
+  const spawnFadeOutGhost = (from: Sample, left: number, width: number, opacity: number) => {
     const parent = element.parentElement;
     if (parent === null) return;
     const height = Math.max(2, from.bottom - from.top);
@@ -154,11 +154,11 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
     ghost.style.width = `${width}px`;
     ghost.style.height = `${height}px`;
     ghost.style.transform = `translate(${left}px, ${from.top}px) scaleY(1)`;
-    ghost.style.opacity = "1";
+    ghost.style.opacity = String(opacity);
     ghost.style.transition = "none";
     parent.append(ghost);
     ghosts.add(ghost);
-    const animation = ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
+    const animation = ghost.animate([{ opacity }, { opacity: 0 }], {
       duration: CROSS_GROUP_OUT_MS,
       easing: "ease-out",
       fill: "forwards",
@@ -196,22 +196,25 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         visible = true;
         return;
       }
-      element.style.opacity = opacity;
       const from = current();
       const crossGroup =
         previous !== null &&
         previous.group !== null &&
         next.group !== null &&
         previous.group !== next.group;
-      if (crossGroup && hidden) {
-        stop();
-        place(next);
-        return;
-      }
       if (crossGroup) {
-        spawnFadeOutGhost(from, previous.left, previous.width);
+        // Leave from what is on screen now: a hidden piece leaves nothing behind.
+        const shown = Number(getComputedStyle(element).opacity);
+        if (shown > 0.01) spawnFadeOutGhost(from, previous.left, previous.width, shown);
         stop();
         place(next);
+        if (hidden) {
+          element.style.transition = "none";
+          element.style.opacity = "0";
+          void element.offsetWidth;
+          element.style.transition = "";
+          return;
+        }
         element.style.opacity = "1";
         const height = Math.max(2, next.bottom - next.top);
         const dir = next.top >= from.top ? -1 : 1;
@@ -233,6 +236,7 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         );
         return;
       }
+      element.style.opacity = opacity;
       stop();
       place(next);
       const dt = frameStep;
@@ -533,6 +537,10 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
       const row = under?.closest<HTMLElement>(ROW) ?? null;
       if (row === hovered || (row !== null && !list.contains(row))) return;
       hovered = row;
+      if (followingSelected && resolveSelectedRow() === lastSelectedRow) {
+        moveHover(lastSelectedRow);
+        return;
+      }
       sync();
     });
   };
