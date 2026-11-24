@@ -13,6 +13,7 @@ const ROW_GAP_TOLERANCE = 12;
 type Span = { top: number; bottom: number; left: number; width: number };
 type Sample = { top: number; bottom: number; vTop: number; vBottom: number };
 export type RowShiftMotion = { deltaY: number; duration: number; easing: string };
+export type RowEnterMotion = { travel: number; duration: number; delay: number; easing: string };
 
 type RunningPath =
   | { kind: "spring"; samples: Sample[]; dt: number; animation: Animation }
@@ -189,6 +190,42 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         { once: true },
       );
     },
+    enter(next: Span, motion: RowEnterMotion, onFinish?: () => void) {
+      target = next;
+      stop();
+      place(next);
+      element.style.opacity = "1";
+      visible = true;
+      if (reducedMotion?.matches) {
+        onFinish?.();
+        return;
+      }
+      const height = Math.max(2, next.bottom - next.top);
+      const fromTop = next.top + motion.travel;
+      const animation = element.animate(
+        [
+          { opacity: 0, transform: `translate(${next.left}px, ${fromTop}px) scaleY(1)` },
+          { opacity: 1, transform: `translate(${next.left}px, ${next.top}px) scaleY(1)` },
+        ],
+        {
+          duration: motion.duration,
+          delay: motion.delay,
+          easing: motion.easing,
+          fill: "backwards",
+        },
+      );
+      path = { kind: "follow", fromTop, toTop: next.top, height, animation };
+      animation.addEventListener(
+        "finish",
+        () => {
+          if (path?.animation === animation) {
+            path = null;
+            onFinish?.();
+          }
+        },
+        { once: true },
+      );
+    },
     dispose() {
       stop();
     },
@@ -273,7 +310,10 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
 
   // Called synchronously by sidebarListMotion before starting row FLIP transforms, so an
   // unchanged selected row's tick and capsule ride in 1:1 lockstep instead of lagging behind.
-  const followShift = (shifts: ReadonlyMap<HTMLElement, RowShiftMotion>) => {
+  const followShift = (
+    shifts: ReadonlyMap<HTMLElement, RowShiftMotion>,
+    enters?: ReadonlyMap<HTMLElement, RowEnterMotion>,
+  ) => {
     if (!layer.isConnected) list.append(layer);
     clearTimeout(settleTimer);
     const selectedRow = resolveSelectedRow();
@@ -286,6 +326,7 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
         selectedCapsule.follow(selected.capsule, selectedShift);
         selectedTick.follow(selected.tick, selectedShift, () => {
           followingSelected = false;
+          sync();
         });
       }
       const hoverRow = hovered === selectedRow ? null : hovered;
@@ -300,6 +341,23 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
         hoverTick.moveTo(hover?.tick ?? null);
       }
       return;
+    }
+    const selectedEnter = selectedLi ? enters?.get(selectedLi) : undefined;
+    if (selectedRow !== null && selectedRow !== lastSelectedRow && selectedEnter !== undefined) {
+      const selected = measure(selectedRow);
+      if (selected !== null) {
+        lastSelectedRow = selectedRow;
+        followingSelected = true;
+        selectedCapsule.enter(selected.capsule, selectedEnter);
+        selectedTick.enter(selected.tick, selectedEnter, () => {
+          followingSelected = false;
+          sync();
+        });
+        const hover = hovered === selectedRow ? null : measure(hovered);
+        hoverCapsule.moveTo(hover?.capsule ?? null);
+        hoverTick.moveTo(hover?.tick ?? null);
+        return;
+      }
     }
     sync();
   };

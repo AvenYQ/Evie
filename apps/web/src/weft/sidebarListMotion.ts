@@ -1,4 +1,4 @@
-import type { RowShiftMotion, WeftSidebarIndicators } from "./sidebarIndicators";
+import type { RowEnterMotion, RowShiftMotion, WeftSidebarIndicators } from "./sidebarIndicators";
 
 // Weft: compositor-only sidebar list motion (Preset A: staggered cascade reveal + clipped
 // collapse curtain + new-thread entry + lockstep indicator follow).
@@ -460,6 +460,23 @@ export function createWeftSidebarListMotion(
       }
 
       if (shouldAnimate) {
+        // Compute planned folder-expand enter timings up front so indicators for a selected row
+        // revealed inside an expanding folder enter together with that row.
+        const plannedFolderEnters = new Map<HTMLElement, RowEnterMotion>();
+        for (const [folderKey, group] of enteredByFolder) {
+          if (!openedFolders.has(folderKey)) continue;
+          const visibleGroup = group.filter((node) => {
+            const pos = next.get(node)!;
+            return isNearViewport(pos.top, pos.height);
+          });
+          visibleGroup.forEach((node, index) => {
+            const delay = Math.min(index * CASCADE_STAGGER, CASCADE_MAX_DELAY);
+            const duration = Math.max(120, OPEN_DURATION - delay + 45);
+            const travel = -Math.min(12, 8 + index * 1.5);
+            plannedFolderEnters.set(node, { travel, duration, delay, easing: OPEN_EASING });
+          });
+        }
+
         // Cancel surviving transforms before asking indicators to measure resting layout spans,
         // so selected tick/capsule animate in exact 1:1 lockstep with their shifted <li>.
         for (const node of movedDelta.keys()) cancel(node);
@@ -468,7 +485,7 @@ export function createWeftSidebarListMotion(
           for (const [node, deltaY] of movedDelta) {
             shiftMap.set(node, { deltaY, duration: shiftDuration, easing: shiftEasing });
           }
-          indicators.followShift(shiftMap);
+          indicators.followShift(shiftMap, plannedFolderEnters);
         }
 
         // 1. Animate folder collapse / thread removal curtains (clipped, zero bleed).
@@ -487,20 +504,15 @@ export function createWeftSidebarListMotion(
         for (const [folderKey, group] of enteredByFolder) {
           const isOpen = openedFolders.has(folderKey);
           if (isOpen) {
-            const visibleGroup = group.filter((node) => {
-              const pos = next.get(node)!;
-              return isNearViewport(pos.top, pos.height);
-            });
-            visibleGroup.forEach((node, index) => {
+            for (const node of group) {
+              const plan = plannedFolderEnters.get(node);
+              if (plan === undefined) continue;
               animatedFolderEnters.add(node);
-              const delay = Math.min(index * CASCADE_STAGGER, CASCADE_MAX_DELAY);
-              const rowDur = Math.max(120, OPEN_DURATION - delay + 45);
-              const travel = -Math.min(12, 8 + index * 1.5);
               const animation = node.animate(
                 [
                   {
                     opacity: 0,
-                    transform: `translateY(${travel}px)`,
+                    transform: `translateY(${plan.travel}px)`,
                     clipPath: "inset(0px 0px 100% 0px)",
                   },
                   {
@@ -509,9 +521,14 @@ export function createWeftSidebarListMotion(
                     clipPath: "inset(0px 0px 0px 0px)",
                   },
                 ],
-                { duration: rowDur, delay, easing: OPEN_EASING, fill: "backwards" },
+                {
+                  duration: plan.duration,
+                  delay: plan.delay,
+                  easing: plan.easing,
+                  fill: "backwards",
+                },
               );
-              entering.set(node, { animation, travel });
+              entering.set(node, { animation, travel: plan.travel });
               animation.addEventListener(
                 "finish",
                 () => {
@@ -519,7 +536,7 @@ export function createWeftSidebarListMotion(
                 },
                 { once: true },
               );
-            });
+            }
           } else {
             for (const node of group) {
               animatedFolderEnters.add(node);

@@ -82,6 +82,12 @@ html.dark[data-theme-id="dune-plotter-tide"] [data-weft-motion] {
   translate: 2px 0;
 }
 
+/* Keep expanded thread rows materialized so layout reads in useLayoutEffect match
+   the theme's real row height instead of contain-intrinsic-size (54px vs 40px). */
+[data-weft-motion] > li[data-thread-item] {
+  content-visibility: visible !important;
+}
+
 /* Keep folder headers above temporary collapse curtains and harmonize chevron rotation. */
 [data-weft-motion] > [data-testid="sidebar-project-folder"] {
   position: relative;

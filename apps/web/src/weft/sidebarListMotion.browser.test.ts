@@ -180,4 +180,92 @@ describe("createWeftSidebarListMotion", () => {
 
     expect(list.dataset.weftMotion).toBe("");
   });
+
+  it("aligns selected tick and capsule with the selected row when expanding a folder above whose rows use content-visibility:auto", async () => {
+    using harness = mountFolderList();
+    const { list, motion, indicator } = harness;
+    list.style.minHeight = "600px";
+
+    const folderA = createFolderHeader("folder:a", false);
+    const folderB = createFolderHeader("folder:b", true);
+    const b0 = createThreadItem("b0", "folder:b");
+    b0.btn.setAttribute("aria-current", "page");
+    list.append(folderA.li, folderB.li, b0.li);
+    motion.update(false);
+
+    const tick = indicator("selected-tick");
+    const capsule = indicator("selected-capsule");
+    await vi.waitFor(() => {
+      expect(tick.style.opacity).toBe("1");
+    });
+
+    // Expand folder A above folder B with 4 rows mimicking SidebarThreadRow's
+    // content-visibility:auto + contain-intrinsic-size:auto 54px while rendering 40px tall.
+    folderA.btn.setAttribute("aria-expanded", "true");
+    const items = Array.from({ length: 4 }, (_, index) => {
+      const item = createThreadItem(`a${index}`, "folder:a");
+      item.li.dataset.threadItem = `a${index}`;
+      item.li.style.height = "";
+      item.li.style.contentVisibility = "auto";
+      item.li.style.containIntrinsicSize = "auto 54px";
+      list.insertBefore(item.li, folderB.li);
+      return item;
+    });
+    motion.update(true);
+
+    // Wait for animations to finish naturally (no manual .finish()).
+    await vi.waitFor(() => {
+      expect(b0.li.getAnimations()).toHaveLength(0);
+      expect(tick.getAnimations()).toHaveLength(0);
+    });
+
+    const heights = items.map((item) => Math.round(item.li.getBoundingClientRect().height));
+    const selectedRect = b0.btn.getBoundingClientRect();
+    const tickRect = tick.getBoundingClientRect();
+    const capsuleRect = capsule.getBoundingClientRect();
+    const expectedTickTop = selectedRect.top + (selectedRect.height - 18) / 2;
+    expect(heights).toEqual([40, 40, 40, 40]);
+    expect(Math.abs(tickRect.top - expectedTickTop)).toBeLessThan(1.5);
+    expect(Math.abs(capsuleRect.top - (selectedRect.top + 2))).toBeLessThan(1.5);
+  });
+
+  it("reveals selected tick and capsule aligned with the selected row when expanding its own folder", async () => {
+    using harness = mountFolderList();
+    const { list, motion, indicator } = harness;
+    list.style.minHeight = "600px";
+
+    const folderA = createFolderHeader("folder:a", false);
+    list.append(folderA.li);
+    motion.update(false);
+
+    folderA.btn.setAttribute("aria-expanded", "true");
+    const items = Array.from({ length: 6 }, (_, index) => {
+      const item = createThreadItem(`a${index}`, "folder:a");
+      item.li.dataset.threadItem = `a${index}`;
+      item.li.style.height = "";
+      item.li.style.contentVisibility = "auto";
+      item.li.style.containIntrinsicSize = "auto 54px";
+      if (index === 4) item.btn.setAttribute("aria-current", "page");
+      list.append(item.li);
+      return item;
+    });
+    motion.update(true);
+
+    const tick = indicator("selected-tick");
+    const capsule = indicator("selected-capsule");
+    // Tick should share the row's staggered enter delay (row 4 -> 88ms) instead of popping in at 0ms.
+    expect(Number(tick.getAnimations()[0]?.effect?.getTiming().delay ?? -1)).toBe(88);
+
+    await vi.waitFor(() => {
+      expect(items[4]!.li.getAnimations()).toHaveLength(0);
+      expect(tick.getAnimations()).toHaveLength(0);
+    });
+
+    const selectedRect = items[4]!.btn.getBoundingClientRect();
+    const tickRect = tick.getBoundingClientRect();
+    const capsuleRect = capsule.getBoundingClientRect();
+    const expectedTickTop = selectedRect.top + (selectedRect.height - 18) / 2;
+    expect(Math.abs(tickRect.top - expectedTickTop)).toBeLessThan(1.5);
+    expect(Math.abs(capsuleRect.top - (selectedRect.top + 2))).toBeLessThan(1.5);
+  });
 });
