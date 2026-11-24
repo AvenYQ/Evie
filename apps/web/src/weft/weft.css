@@ -25,8 +25,7 @@
   left: 0;
   opacity: 0;
   transition: opacity 160ms ease-out;
-  transform-origin: 0 0;
-  will-change: transform;
+  will-change: transform, height;
 }
 
 [data-weft-indicator$="capsule"] {
