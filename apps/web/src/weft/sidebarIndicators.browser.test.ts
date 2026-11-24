@@ -40,6 +40,11 @@ function mount(rowCount: number) {
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 const translateY = (element: HTMLElement) =>
   Number(/translate\([^,]+,\s*([-\d.]+)px\)/.exec(element.style.transform)?.[1]);
+// What is on screen, including a running transform animation.
+const shown = (element: HTMLElement) => {
+  const matrix = new DOMMatrix(getComputedStyle(element).transform);
+  return { top: matrix.f, length: parseFloat(element.style.height) * matrix.d };
+};
 
 describe("createWeftSidebarIndicators", () => {
   it("parks the selected tick on the guide of the current row", async () => {
@@ -60,14 +65,38 @@ describe("createWeftSidebarIndicators", () => {
     rows[0]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
     rows[5]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
     const tick = indicator("hover-tick");
+    // The motion is a browser animation, so it keeps playing while the main thread is busy.
+    expect(tick.getAnimations()).toHaveLength(1);
     let longest = 0;
     for (let frame = 0; frame < 90; frame++) {
       await nextFrame();
-      longest = Math.max(longest, parseFloat(tick.style.height));
+      longest = Math.max(longest, shown(tick).length);
     }
     expect(longest).toBeGreaterThan(30);
-    expect(parseFloat(tick.style.height)).toBeCloseTo(18, 0);
-    expect(translateY(tick)).toBeCloseTo(200 + 11, 0);
+    expect(shown(tick).length).toBeCloseTo(18, 0);
+    expect(shown(tick).top).toBeCloseTo(200 + 11, 0);
+  });
+
+  it("continues from where it is when the target changes mid-move", async () => {
+    const { rows, indicator } = mount(6);
+    rows[0]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    rows[5]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    const tick = indicator("hover-tick");
+    for (let frame = 0; frame < 6; frame++) await nextFrame();
+    const before = shown(tick);
+    rows[2]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    const after = shown(tick);
+    expect(Math.abs(after.top - before.top)).toBeLessThan(1);
+    expect(Math.abs(after.length - before.length)).toBeLessThan(1);
+  });
+
+  it("starts the selected pieces toward a clicked row before the selection commits", async () => {
+    const { rows, indicator } = mount(4);
+    rows[0]!.setAttribute("aria-current", "page");
+    await nextFrame();
+    rows[3]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(indicator("selected-tick").getAnimations()).toHaveLength(1);
+    expect(translateY(indicator("selected-tick"))).toBeCloseTo(120 + 11, 0);
   });
 
   it("hides the hover pieces on the selected row and when the pointer leaves", async () => {

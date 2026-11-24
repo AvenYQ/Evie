@@ -10,81 +10,142 @@ const STRETCH = 2.8;
 const DAMPING = 0.72;
 
 type Span = { top: number; bottom: number; left: number; width: number };
+type Sample = { top: number; bottom: number; vTop: number; vBottom: number };
+
+// Step length of the spring simulation; matched to the display's frame interval so the
+// motion is the same as when it was stepped once per frame.
+let frameStep = 1 / 60;
+function measureFrameStep(view: (Window & typeof globalThis) | null) {
+  if (view === null) return;
+  const stamps: number[] = [];
+  const probe = (now: number) => {
+    stamps.push(now);
+    if (stamps.length < 12) {
+      view.requestAnimationFrame(probe);
+      return;
+    }
+    const gaps = stamps
+      .slice(1)
+      .map((stamp, index) => stamp - stamps[index]!)
+      .sort((a, b) => a - b);
+    const median = gaps[gaps.length >> 1]! / 1000;
+    if (median > 1 / 250 && median < 1 / 25) frameStep = Math.min(0.032, median);
+  };
+  view.requestAnimationFrame(probe);
+}
 
 // Two springs per element: the leading edge is stiff and the trailing edge soft, so a
-// moving piece stretches toward its target and then recovers. It only runs while moving.
-function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undefined) {
-  const state = { top: 0, bottom: 0, vTop: 0, vBottom: 0, target: null as Span | null };
-  let frame = 0;
-  let last = 0;
-  let visible = false;
-
-  const paint = () => {
-    const target = state.target!;
-    element.style.transform = `translate(${target.left}px, ${state.top}px)`;
-    element.style.width = `${target.width}px`;
-    element.style.height = `${Math.max(2, state.bottom - state.top)}px`;
-  };
-  const spring = (x: number, v: number, to: number, k: number, dt: number) => {
+// moving piece stretches toward its target and then recovers. The whole path is worked out
+// up front and handed to the browser as a transform animation, so it keeps playing on the
+// compositor while the main thread is busy (e.g. rendering a long conversation).
+function simulate(from: Sample, target: Span, dt: number) {
+  const spring = (x: number, v: number, to: number, k: number) => {
     const next = v + (k * (to - x) - 2 * DAMPING * Math.sqrt(k) * v) * dt;
     return [x + next * dt, next] as const;
   };
-  const step = (now: number) => {
-    const target = state.target!;
-    const dt = Math.min(0.032, (now - last) / 1000);
-    last = now;
+  const soft = STIFF / (STRETCH * STRETCH);
+  const samples: Sample[] = [from];
+  let state = from;
+  for (let step = 0; step < 600; step++) {
     const down = target.bottom > state.bottom || target.top > state.top;
-    const soft = STIFF / (STRETCH * STRETCH);
-    [state.top, state.vTop] = spring(state.top, state.vTop, target.top, down ? soft : STIFF, dt);
-    [state.bottom, state.vBottom] = spring(
-      state.bottom,
-      state.vBottom,
-      target.bottom,
-      down ? STIFF : soft,
-      dt,
-    );
+    const [top, vTop] = spring(state.top, state.vTop, target.top, down ? soft : STIFF);
+    const [bottom, vBottom] = spring(state.bottom, state.vBottom, target.bottom, down ? STIFF : soft);
+    state = { top, bottom, vTop, vBottom };
     const settled =
-      Math.abs(target.top - state.top) +
-        Math.abs(target.bottom - state.bottom) +
-        Math.abs(state.vTop) +
-        Math.abs(state.vBottom) <
+      Math.abs(target.top - top) +
+        Math.abs(target.bottom - bottom) +
+        Math.abs(vTop) +
+        Math.abs(vBottom) <
       0.2;
-    if (settled) {
-      state.top = target.top;
-      state.bottom = target.bottom;
-      frame = 0;
-    } else {
-      frame = requestAnimationFrame(step);
-    }
-    paint();
+    if (settled) break;
+    samples.push(state);
+  }
+  samples.push({ top: target.top, bottom: target.bottom, vTop: 0, vBottom: 0 });
+  return samples;
+}
+
+const sameSpan = (a: Span | null, b: Span) =>
+  a !== null &&
+  Math.abs(a.top - b.top) < 0.5 &&
+  Math.abs(a.bottom - b.bottom) < 0.5 &&
+  Math.abs(a.left - b.left) < 0.5 &&
+  Math.abs(a.width - b.width) < 0.5;
+
+function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undefined) {
+  let target: Span | null = null;
+  let rest: Sample = { top: 0, bottom: 0, vTop: 0, vBottom: 0 };
+  let path: { samples: Sample[]; dt: number; animation: Animation } | null = null;
+  let visible = false;
+
+  const transform = (left: number, sample: Sample, height: number) =>
+    `translate(${left}px, ${sample.top}px) scaleY(${Math.max(2, sample.bottom - sample.top) / height})`;
+
+  // Where the element is right now, read from the running animation's clock.
+  const current = (): Sample => {
+    if (path === null) return rest;
+    const { samples, dt, animation } = path;
+    const elapsed = animation.currentTime === null ? 0 : Number(animation.currentTime) / 1000;
+    const position = elapsed / dt;
+    const index = Math.floor(position);
+    if (index >= samples.length - 1) return samples[samples.length - 1]!;
+    const a = samples[index]!;
+    const b = samples[index + 1]!;
+    const f = position - index;
+    return {
+      top: a.top + (b.top - a.top) * f,
+      bottom: a.bottom + (b.bottom - a.bottom) * f,
+      vTop: a.vTop + (b.vTop - a.vTop) * f,
+      vBottom: a.vBottom + (b.vBottom - a.vBottom) * f,
+    };
+  };
+
+  const stop = () => {
+    path?.animation.cancel();
+    path = null;
+  };
+
+  const place = (to: Span) => {
+    const height = Math.max(2, to.bottom - to.top);
+    rest = { top: to.top, bottom: to.bottom, vTop: 0, vBottom: 0 };
+    element.style.width = `${to.width}px`;
+    element.style.height = `${height}px`;
+    element.style.transform = transform(to.left, rest, height);
   };
 
   return {
-    moveTo(target: Span | null) {
-      if (target === null) {
+    moveTo(next: Span | null) {
+      if (next === null) {
         if (visible) element.style.opacity = "0";
         visible = false;
         return;
       }
-      state.target = target;
+      if (visible && sameSpan(target, next)) return;
+      target = next;
       if (!visible || reducedMotion?.matches) {
-        cancelAnimationFrame(frame);
-        frame = 0;
-        state.top = target.top;
-        state.bottom = target.bottom;
-        state.vTop = state.vBottom = 0;
-        paint();
+        stop();
+        place(next);
         element.style.opacity = "1";
         visible = true;
         return;
       }
-      if (frame === 0) {
-        last = performance.now();
-        frame = requestAnimationFrame(step);
-      }
+      const from = current();
+      stop();
+      place(next);
+      const dt = frameStep;
+      const samples = simulate(from, next, dt);
+      if (samples.length < 3) return;
+      const height = Math.max(2, next.bottom - next.top);
+      const animation = element.animate(
+        samples.map((sample) => ({ transform: transform(next.left, sample, height) })),
+        { duration: (samples.length - 1) * dt * 1000, easing: "linear" },
+      );
+      path = { samples, dt, animation };
+      animation.addEventListener("finish", () => {
+        if (path?.animation === animation) path = null;
+      });
     },
     dispose() {
-      cancelAnimationFrame(frame);
+      stop();
     },
   };
 }
@@ -93,6 +154,7 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   const doc = list.ownerDocument;
   const reducedMotion = doc.defaultView?.matchMedia("(prefers-reduced-motion: reduce)");
   list.dataset.weftMotion = "";
+  measureFrameStep(doc.defaultView);
 
   const layer = doc.createElement("li");
   layer.dataset.weftLayer = "";
@@ -111,6 +173,10 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   list.append(layer);
 
   let hovered: HTMLElement | null = null;
+  // A row just clicked, treated as selected before the app commits the selection, so the
+  // selected pieces start moving before the (possibly heavy) conversation render begins.
+  let pending: HTMLElement | null = null;
+  let pendingTimer = 0;
 
   const measure = (row: HTMLElement | null) => {
     if (row === null || !row.isConnected) return null;
@@ -141,7 +207,9 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
 
   const sync = () => {
     if (!layer.isConnected) list.append(layer);
-    const selectedRow = list.querySelector<HTMLElement>(SELECTED);
+    const committed = list.querySelector<HTMLElement>(SELECTED);
+    if (pending !== null && (pending === committed || !pending.isConnected)) pending = null;
+    const selectedRow = pending ?? committed;
     const selected = measure(selectedRow);
     const hover = hovered === selectedRow ? null : measure(hovered);
     selectedCapsule.moveTo(selected?.capsule ?? null);
@@ -168,6 +236,23 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     hovered = null;
     sync();
   };
+  const onClick = (event: MouseEvent) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    if (!(event.target instanceof Element)) return;
+    const row = event.target.closest<HTMLElement>(ROW);
+    // Clicks on a row's own buttons or inputs don't select it.
+    if (row === null || event.target.closest("button, a, input, textarea, [role='button']") !== row)
+      return;
+    pending = row;
+    clearTimeout(pendingTimer);
+    pendingTimer = window.setTimeout(() => {
+      pending = null;
+      sync();
+    }, 1500);
+    sync();
+  };
+  list.addEventListener("click", onClick);
   list.addEventListener("pointermove", onPointerMove, { passive: true });
   list.addEventListener("pointerleave", onPointerLeave);
 
@@ -190,6 +275,8 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   return {
     dispose() {
       clearTimeout(settleTimer);
+      clearTimeout(pendingTimer);
+      list.removeEventListener("click", onClick);
       mutations.disconnect();
       stopResize();
       list.removeEventListener("pointermove", onPointerMove);
