@@ -170,10 +170,12 @@ html.dark [data-thread-details-panel] [data-thread-details-card] {
 }
 
 /* The inline card arrives instead of popping in. An animation, not a transition, so the
-   stock top transition (on only while the find bar is open) stays as it is. */
+   stock top transition (on only while the find bar is open) stays as it is. Never fill
+   forwards: an opacity animation left attached makes this element the backdrop root, and
+   the card's frosted blur then sees nothing behind it. */
 @media (prefers-reduced-motion: no-preference) {
   html [data-thread-details-panel="inline"] {
-    animation: weft-details-in var(--weft-dur-layout) var(--weft-ease-out) both;
+    animation: weft-details-in var(--weft-dur-layout) var(--weft-ease-out) backwards;
   }
 }
 @keyframes weft-details-in {

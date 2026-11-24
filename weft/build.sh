@@ -16,7 +16,8 @@ WEFT_PRODUCT_NAME="$APP_NAME" node scripts/build-desktop-artifact.ts \
 APP="$(find "$OUT" -maxdepth 3 -name "$APP_NAME.app" -type d | head -1)"
 [[ -n "$APP" ]] || { echo "✗ 没找到打包出的 $APP_NAME.app" >&2; exit 1; }
 
-if pgrep -xq "$APP_NAME"; then
+# ps, not pgrep: pgrep can miss the running app from sandboxed shells.
+if ps -axo comm= | grep -qx "/Applications/$APP_NAME.app/Contents/MacOS/$APP_NAME"; then
   echo "! $APP_NAME 正在运行，先退出它再安装。新包在：$APP" >&2
   exit 3
 fi
