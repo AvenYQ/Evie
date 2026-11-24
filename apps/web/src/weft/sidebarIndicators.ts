@@ -8,6 +8,7 @@ const CAPSULE_GAP = 2;
 const STIFF = 900;
 const STRETCH = 2.8;
 const DAMPING = 0.72;
+const MAX_EXTRA_LENGTH = 38;
 
 type Span = { top: number; bottom: number; left: number; width: number };
 
@@ -19,11 +20,19 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
   let last = 0;
   let visible = false;
 
+  // The drawn length is capped on long moves; the end nearer its target (the leading one) stays.
   const paint = () => {
     const target = state.target!;
-    element.style.transform = `translate(${target.left}px, ${state.top}px)`;
+    let top = state.top;
+    let bottom = state.bottom;
+    const maxLength = target.bottom - target.top + MAX_EXTRA_LENGTH;
+    if (bottom - top > maxLength) {
+      if (target.bottom - bottom >= target.top - top) top = bottom - maxLength;
+      else bottom = top + maxLength;
+    }
+    element.style.transform = `translate(${target.left}px, ${top}px)`;
     element.style.width = `${target.width}px`;
-    element.style.height = `${Math.max(2, state.bottom - state.top)}px`;
+    element.style.height = `${Math.max(2, bottom - top)}px`;
   };
   const spring = (x: number, v: number, to: number, k: number, dt: number) => {
     const next = v + (k * (to - x) - 2 * DAMPING * Math.sqrt(k) * v) * dt;
