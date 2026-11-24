@@ -30,9 +30,9 @@ import { ThreadRepositorySections } from "./ThreadRepositorySections";
 import { ThreadServersPanel } from "./ThreadServersPanel";
 import {
   ThreadDetailsContext,
-  ThreadDetailsUsage,
   type ThreadDetailsUsageInput,
 } from "./ThreadDetailsUsage";
+import { WeftUsageLimitsSection } from "../../weft/WeftUsageLimitsSection";
 import { ThreadDetailsItemsMenuItems } from "./ThreadDetailsItemsMenu";
 import { resolveThreadDetailsVisibility, THREAD_DETAILS_ITEMS } from "./threadDetailsItems";
 import { useClientSettings } from "../../hooks/useSettings";
@@ -326,7 +326,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                 />
               ) : null}
 
-              {visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
+              {visible.usage ? <WeftUsageLimitsSection {...props.usage} /> : null}
 
               {visible.context && props.usage.contextWindow ? (
                 <ThreadDetailsContext usage={props.usage.contextWindow} />
