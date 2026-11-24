@@ -225,6 +225,7 @@ import {
 } from "./Sidebar.drag";
 import { SidebarPointerSensor } from "./Sidebar.pointer";
 import { createSidebarListMotion } from "./Sidebar.motion";
+import { createWeftSidebarIndicators } from "../weft/sidebarIndicators";
 import { createSidebarShiftGuard } from "./Sidebar.shiftGuard";
 import {
   pickSnoozePreset,
@@ -1751,7 +1752,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     motion.update(false);
     const shiftGuard = createSidebarShiftGuard(node);
     shiftGuardRef.current = shiftGuard;
+    const weftIndicators = createWeftSidebarIndicators(node);
     return () => {
+      weftIndicators.dispose();
       // Search replaces this list while the Sidebar stays mounted, and a drag
       // whose rows are gone can never drop. The compiler memoizes this callback
       // with no deps (it reads only refs), so the cleanup runs only on unmount.

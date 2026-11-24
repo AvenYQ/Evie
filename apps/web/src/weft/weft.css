@@ -1,0 +1,75 @@
+/* Weft: personal styling layered on top of T3 Code. Scoped to [data-weft-*] so stock markup is untouched. */
+
+[data-weft-motion] {
+  --weft-tick-color: var(--app-theme-accent, var(--primary));
+  --weft-hover-tick: color-mix(in srgb, var(--weft-tick-color) 50%, transparent);
+  --weft-hover-capsule: var(--sidebar-row-hover);
+  --weft-selected-capsule: color-mix(in srgb, var(--sidebar-foreground) 10%, var(--sidebar));
+  position: relative;
+  isolation: isolate;
+}
+
+[data-weft-layer] {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+[data-weft-indicator] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+  will-change: transform, height;
+}
+
+[data-weft-indicator$="capsule"] {
+  z-index: -1;
+  border-radius: 8px;
+}
+[data-weft-indicator="hover-capsule"] {
+  background: var(--weft-hover-capsule);
+}
+[data-weft-indicator="selected-capsule"] {
+  background: var(--weft-selected-capsule);
+}
+
+[data-weft-indicator$="tick"] {
+  z-index: 1;
+  border-radius: 2px;
+}
+[data-weft-indicator="hover-tick"] {
+  background: var(--weft-hover-tick);
+}
+[data-weft-indicator="selected-tick"] {
+  background: var(--weft-tick-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--weft-tick-color) 45%, transparent);
+}
+
+/* The sliding capsules replace each row's own highlight; keyboard focus keeps its ring. */
+[data-weft-motion] [data-sidebar-row][data-sidebar-parent^="folder:"]:not(:focus-visible)::after {
+  display: none !important;
+}
+[data-weft-motion] [data-sidebar-row][data-sidebar-parent^="folder:"] {
+  background: transparent !important;
+}
+
+/* Hover nudge: the row content leans a little toward the pointer. */
+[data-weft-motion] [data-sidebar-row][data-sidebar-parent^="folder:"] > div:first-child {
+  transition: translate 180ms ease-out;
+}
+[data-weft-motion] [data-sidebar-row][data-sidebar-parent^="folder:"]:hover > div:first-child {
+  translate: 2px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-weft-motion] [data-sidebar-row] > div:first-child {
+    transition: none;
+    translate: none;
+  }
+}
