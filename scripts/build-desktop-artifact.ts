@@ -2798,6 +2798,9 @@ export function resolvePackageManagerUserAgent(packageManager: string): string {
 }
 
 export function resolveDesktopProductName(version: string): string {
+  // Weft: personal unofficial build, named so it never passes as official T3 Code.
+  const weftProductName = process.env.WEFT_PRODUCT_NAME?.trim();
+  if (weftProductName) return weftProductName;
   return resolveDesktopUpdateChannel(version) === "nightly"
     ? "T3 Code (Nightly)"
     : (desktopPackageJson.productName ?? "T3 Code");
