@@ -90,6 +90,17 @@ describe("createWeftSidebarIndicators", () => {
     expect(Math.abs(after.length - before.length)).toBeLessThan(1);
   });
 
+  it("keeps the hover tick while the pointer crosses the gap between rows", async () => {
+    const { list, rows, indicator } = mount(3);
+    rows[0]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    const gapY = rows[0]!.getBoundingClientRect().bottom + 2;
+    list.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientY: gapY }));
+    expect(indicator("hover-tick").style.opacity).toBe("1");
+    rows[1]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    // It slides over instead of reappearing on the next row.
+    expect(indicator("hover-tick").getAnimations()).toHaveLength(1);
+  });
+
   it("starts the selected pieces toward a clicked row before the selection commits", async () => {
     const { rows, indicator } = mount(4);
     rows[0]!.setAttribute("aria-current", "page");

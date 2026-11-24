@@ -8,6 +8,7 @@ const CAPSULE_GAP = 2;
 const STIFF = 900;
 const STRETCH = 2.8;
 const DAMPING = 0.72;
+const ROW_GAP_TOLERANCE = 12;
 
 type Span = { top: number; bottom: number; left: number; width: number };
 type Sample = { top: number; bottom: number; vTop: number; vBottom: number };
@@ -227,7 +228,18 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   };
 
   const onPointerMove = (event: PointerEvent) => {
-    const row = event.target instanceof Element ? event.target.closest<HTMLElement>(ROW) : null;
+    const target = event.target instanceof Element ? event.target : null;
+    const anyRow = target?.closest<HTMLElement>("[data-sidebar-row]") ?? null;
+    // In the gap between two rows the pointer is still "on" the row it came from; dropping
+    // the hover there would hide the tick and make it reappear on the next row instead of sliding.
+    if (anyRow === null && hovered !== null && hovered.isConnected) {
+      const box = hovered.getBoundingClientRect();
+      const nearby =
+        event.clientY >= box.top - ROW_GAP_TOLERANCE &&
+        event.clientY <= box.bottom + ROW_GAP_TOLERANCE;
+      if (nearby) return;
+    }
+    const row = anyRow?.matches(ROW) ? anyRow : null;
     if (row === hovered) return;
     hovered = row;
     sync();
