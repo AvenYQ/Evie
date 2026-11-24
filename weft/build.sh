@@ -17,7 +17,8 @@ APP="$(find "$OUT" -maxdepth 3 -name "$APP_NAME.app" -type d | head -1)"
 [[ -n "$APP" ]] || { echo "✗ 没找到打包出的 $APP_NAME.app" >&2; exit 1; }
 
 # ps, not pgrep: pgrep can miss the running app from sandboxed shells.
-if ps -axo comm= | grep -qx "/Applications/$APP_NAME.app/Contents/MacOS/$APP_NAME"; then
+# grep without -q reads all of ps's output, so pipefail never sees a SIGPIPE from ps.
+if ps -axo comm= | grep -x "/Applications/$APP_NAME.app/Contents/MacOS/$APP_NAME" >/dev/null; then
   echo "! $APP_NAME 正在运行，先退出它再安装。新包在：$APP" >&2
   exit 3
 fi
