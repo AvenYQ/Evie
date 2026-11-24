@@ -8,8 +8,6 @@ const CAPSULE_GAP = 2;
 const STIFF = 900;
 const STRETCH = 2.8;
 const DAMPING = 0.72;
-// Long jumps would otherwise stretch a piece across every row between; the tail is dragged instead.
-const MAX_STRETCH = 22;
 
 type Span = { top: number; bottom: number; left: number; width: number };
 
@@ -45,16 +43,6 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
       down ? STIFF : soft,
       dt,
     );
-    const maxLength = target.bottom - target.top + MAX_STRETCH;
-    if (state.bottom - state.top > maxLength) {
-      if (down) {
-        state.top = state.bottom - maxLength;
-        state.vTop = state.vBottom;
-      } else {
-        state.bottom = state.top + maxLength;
-        state.vBottom = state.vTop;
-      }
-    }
     const settled =
       Math.abs(target.top - state.top) +
         Math.abs(target.bottom - state.bottom) +
@@ -95,20 +83,6 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         frame = requestAnimationFrame(step);
       }
     },
-    // Take over another piece's position so a click deepens the hover mark in place.
-    adopt(other: { snapshot: () => typeof state | null }) {
-      const from = other.snapshot();
-      if (from === null) return;
-      Object.assign(state, from, { target: state.target ?? from.target });
-      visible = true;
-      element.style.opacity = "1";
-      if (frame === 0 && state.target !== null) {
-        paint();
-        last = performance.now();
-        frame = requestAnimationFrame(step);
-      }
-    },
-    snapshot: () => (visible ? { ...state } : null),
     dispose() {
       cancelAnimationFrame(frame);
     },
@@ -137,7 +111,6 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   list.append(layer);
 
   let hovered: HTMLElement | null = null;
-  let lastSelected: HTMLElement | null = null;
 
   const measure = (row: HTMLElement | null) => {
     if (row === null || !row.isConnected) return null;
@@ -171,11 +144,6 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     const selectedRow = list.querySelector<HTMLElement>(SELECTED);
     const selected = measure(selectedRow);
     const hover = hovered === selectedRow ? null : measure(hovered);
-    if (selectedRow !== lastSelected && selectedRow !== null && selectedRow === hovered) {
-      selectedCapsule.adopt(hoverCapsule);
-      selectedTick.adopt(hoverTick);
-    }
-    lastSelected = selectedRow;
     selectedCapsule.moveTo(selected?.capsule ?? null);
     selectedTick.moveTo(selected?.tick ?? null);
     hoverCapsule.moveTo(hover?.capsule ?? null);
