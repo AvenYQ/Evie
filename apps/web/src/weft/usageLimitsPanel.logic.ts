@@ -21,6 +21,7 @@ export type WeftUsageTone = "ok" | "warning" | "error";
 
 export interface WeftUsageWindow {
   readonly id: string;
+  readonly kind: "session" | "weekly" | "monthly" | "other";
   readonly label: string;
   readonly remainingPercent: number;
   readonly tone: WeftUsageTone;
@@ -29,6 +30,7 @@ export interface WeftUsageWindow {
   readonly resetsAt: string | null;
   readonly resetMs: number | null;
   readonly accountsCount: number;
+  readonly matchesCurrentModel: boolean;
 }
 
 export interface WeftAgentUsageCard {
@@ -62,6 +64,34 @@ function parseResetMs(resetsAt: string | null | undefined, now: number): number 
   return parsed - now;
 }
 
+function windowOrderRank(window: WeftUsageWindow): number {
+  switch (window.kind) {
+    case "session":
+      return 0;
+    case "weekly":
+      return 1;
+    case "monthly":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+function orderWindowsForDisplay(
+  driver: ServerProvider["driver"],
+  windows: readonly WeftUsageWindow[],
+  isCurrent: boolean,
+): readonly WeftUsageWindow[] {
+  if (windows.length <= 1) return windows;
+  const copy = [...windows];
+  if (driver === "antigravity" && isCurrent) {
+    copy.sort((a, b) => Number(b.matchesCurrentModel) - Number(a.matchesCurrentModel));
+    return copy;
+  }
+  copy.sort((a, b) => windowOrderRank(a) - windowOrderRank(b));
+  return copy;
+}
+
 function pickPrimaryWindow(
   driver: ServerProvider["driver"],
   windows: readonly WeftUsageWindow[],
@@ -70,7 +100,7 @@ function pickPrimaryWindow(
 ): WeftUsageWindow | null {
   if (windows.length === 0) return null;
   if (driver === "antigravity" && isCurrent && model !== null) {
-    const matching = windows.filter((window) => antigravityWindowLimitsModel(window, model));
+    const matching = windows.filter((window) => window.matchesCurrentModel);
     if (matching.length > 0) {
       return matching.reduce((lowest, candidate) =>
         candidate.remainingPercent < lowest.remainingPercent ? candidate : lowest,
@@ -119,8 +149,10 @@ export function resolveAllAgentUsageCards(input: {
         const next = nextPoolReset(window, now);
         const resetsAt = next?.member.window.resetsAt ?? null;
         const resetMs = next && next.at > now ? next.at - now : null;
+        const firstKind = window.members[0]?.window.kind ?? "other";
         return {
           id: window.id,
+          kind: firstKind,
           label: window.label,
           remainingPercent: window.remainingPercent,
           tone: weftUsageTone(window.remainingPercent),
@@ -132,6 +164,10 @@ export function resolveAllAgentUsageCards(input: {
           resetsAt,
           resetMs,
           accountsCount: window.members.length,
+          matchesCurrentModel:
+            provider.driver === "antigravity" && isCurrent && model !== null
+              ? antigravityWindowLimitsModel(window, model)
+              : false,
         };
       });
     } else {
@@ -143,6 +179,7 @@ export function resolveAllAgentUsageCards(input: {
           const left = remainingPercent(window);
           return {
             id: window.id,
+            kind: window.kind,
             label: window.label,
             remainingPercent: left,
             tone: weftUsageTone(left),
@@ -151,25 +188,30 @@ export function resolveAllAgentUsageCards(input: {
             resetsAt: window.resetsAt ?? null,
             resetMs: parseResetMs(window.resetsAt, now),
             accountsCount: 1,
+            matchesCurrentModel:
+              provider.driver === "antigravity" && isCurrent && model !== null
+                ? antigravityWindowLimitsModel(window, model)
+                : false,
           };
         });
       }
     }
 
+    const orderedWindows = orderWindowsForDisplay(provider.driver, windows, isCurrent);
     const card: WeftAgentUsageCard = {
       instanceId: provider.instanceId,
       driver: provider.driver,
       displayName: resolveDisplayName(provider),
       accentColor: provider.accentColor,
       isCurrent,
-      windows,
-      primary: pickPrimaryWindow(provider.driver, windows, model, isCurrent),
+      windows: orderedWindows,
+      primary: pickPrimaryWindow(provider.driver, orderedWindows, model, isCurrent),
       secondary: null,
       unavailableNotice,
     };
 
-    if (windows.length > 0 && card.primary !== null) {
-      const secondary = windows.find((window) => window.id !== card.primary!.id) ?? null;
+    if (orderedWindows.length > 0 && card.primary !== null) {
+      const secondary = orderedWindows.find((window) => window.id !== card.primary!.id) ?? null;
       readable.push({ ...card, secondary });
     } else if (isCurrent && unavailableNotice !== null) {
       currentUnavailable = card;

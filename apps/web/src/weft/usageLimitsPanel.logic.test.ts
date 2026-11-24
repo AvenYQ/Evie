@@ -197,6 +197,33 @@ describe("resolveAllAgentUsageCards", () => {
     expect(cards[0]?.primary?.id).toBe("gemini-pro");
     expect(cards[0]?.primary?.remainingPercent).toBe(70);
     expect(cards[0]?.secondary?.id).toBe("claude-gpt");
+    expect(cards[0]?.windows.map((window) => window.id)).toEqual(["gemini-pro", "claude-gpt"]);
+    expect(cards[0]?.windows[0]?.matchesCurrentModel).toBe(true);
+    expect(cards[0]?.windows[1]?.matchesCurrentModel).toBe(false);
+  });
+
+  it("orders session (5h) before weekly (7d) even when the provider returns weekly first", () => {
+    const codex = makeProvider({
+      id: "codex",
+      driver: "codex",
+      usageLimits: {
+        checkedAt,
+        windows: [
+          { id: "seven_day", kind: "weekly", label: "7d", usedPercent: 46 },
+          { id: "five_hour", kind: "session", label: "5h", usedPercent: 18 },
+        ],
+      },
+    });
+
+    const cards = resolveAllAgentUsageCards({
+      providerInstanceId: ProviderInstanceId.make("codex"),
+      model: "gpt-5.4",
+      providers: [codex],
+      sources: [],
+      now,
+    });
+
+    expect(cards[0]?.windows.map((window) => window.id)).toEqual(["five_hour", "seven_day"]);
   });
 
   it("falls back to the current unavailable agent only when no enabled agent has readable limits", () => {

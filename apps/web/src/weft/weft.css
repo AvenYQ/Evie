@@ -156,7 +156,7 @@ html.dark [data-thread-details-panel] [data-thread-details-card][data-weft-glass
     0 4px 12px -2px rgb(0 0 0 / 24%) !important;
 }
 
-/* Live pointer-tracking caustic sheen across the unified glass card */
+/* Hover-only pointer-tracking caustic sheen across the unified glass card */
 html [data-thread-details-panel] [data-thread-details-card][data-weft-glass-card]::before {
   content: "";
   position: absolute;
@@ -164,18 +164,23 @@ html [data-thread-details-panel] [data-thread-details-card][data-weft-glass-card
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
+  opacity: 0;
+  transition: opacity 180ms ease;
   background: radial-gradient(
-    180px circle at var(--weft-mx, 28%) var(--weft-my, 16%),
-    rgb(255 255 255 / 32%),
-    transparent 68%
+    92px circle at var(--weft-mx, 50%) var(--weft-my, 50%),
+    rgb(255 255 255 / 22%),
+    transparent 62%
   );
 }
 html.dark [data-thread-details-panel] [data-thread-details-card][data-weft-glass-card]::before {
   background: radial-gradient(
-    180px circle at var(--weft-mx, 28%) var(--weft-my, 16%),
-    rgb(255 255 255 / 12%),
-    transparent 68%
+    92px circle at var(--weft-mx, 50%) var(--weft-my, 50%),
+    rgb(255 255 255 / 9%),
+    transparent 62%
   );
+}
+html [data-thread-details-panel] [data-thread-details-card][data-weft-glass-card][data-weft-hover="true"]:hover::before {
+  opacity: 1;
 }
 html [data-thread-details-panel] [data-thread-details-card][data-weft-glass-card] > * {
   position: relative;
@@ -391,6 +396,24 @@ html.dark [data-weft-usage] {
   text-overflow: ellipsis;
 }
 
+[data-weft-usage] [data-weft-lg="current-badge"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  flex: none;
+  padding: 1px 6px 1px 5px;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--weft-tick-color) 85%, var(--foreground));
+  background: color-mix(in srgb, var(--weft-tick-color) 15%, transparent);
+  box-shadow:
+    inset 0 0.75px 0 rgb(255 255 255 / 35%),
+    0 0 0 0.6px color-mix(in srgb, var(--weft-tick-color) 36%, transparent);
+}
+
 [data-weft-usage] [data-weft-lg="now-dot"] {
   width: 4.5px;
   height: 4.5px;
@@ -543,6 +566,11 @@ html.dark [data-weft-usage] {
   --lg-bar-a: #d95d43;
   --lg-bar-b: #f4957b;
   --lg-bar-glow: rgb(236 118 92 / 48%);
+}
+
+[data-weft-usage] [data-weft-lg="subwin"][data-active-model="true"] [data-weft-lg="subhead"] > span {
+  color: var(--foreground);
+  font-weight: 550;
 }
 
 [data-weft-usage] [data-weft-lg="subhead"] {

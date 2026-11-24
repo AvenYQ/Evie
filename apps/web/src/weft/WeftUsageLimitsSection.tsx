@@ -23,9 +23,14 @@ function formatShortReset(
 
 function buildCompactSubtitle(
   card: WeftAgentUsageCard,
+  model: string | null,
+  isOpen: boolean,
   messages: ReturnType<typeof useMessages>,
   gt: ReturnType<typeof useGT>,
 ): string {
+  if (card.isCurrent && isOpen && model) {
+    return model;
+  }
   const parts: string[] = [];
   if (card.secondary) {
     parts.push(`${card.secondary.label} ${card.secondary.remainingPercent}%`);
@@ -41,7 +46,8 @@ function buildCompactSubtitle(
 
 /**
  * Weft: multi-agent Liquid Glass usage panel integrated directly into the right details card.
- * Shows every enabled agent's subscription quota at a glance, with click-to-expand per-window tubes.
+ * Keeps the active thread's agent pinned first and expanded by default (e.g. 5h + weekly rows),
+ * while other enabled agents stay compact until clicked.
  */
 export function WeftUsageLimitsSection({
   providerInstanceId = null,
@@ -61,15 +67,20 @@ export function WeftUsageLimitsSection({
     now,
   });
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Keyed by `${providerInstanceId}:${instanceId}` so switching agents automatically resets to
+  // "current agent expanded, other agents collapsed" without a syncing effect.
+  const [manualOpenByKey, setManualOpenByKey] = useState<Readonly<Record<string, boolean>>>({});
   const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
 
-  // Upgrade the enclosing floating right card into Integration 1 Liquid Glass with live caustic glare.
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- binds pointermove caustic variables onto the enclosing details card DOM node
+  // Upgrade the enclosing floating right card into Integration 1 Liquid Glass with hover-only caustic glare.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- binds pointermove/pointerleave caustic variables onto the enclosing details card DOM node
   useEffect(() => {
     const card = hostEl?.closest<HTMLElement>("[data-thread-details-card]");
     if (!card) return;
     card.dataset.weftGlassCard = "";
+    const clearHover = () => {
+      delete card.dataset.weftHover;
+    };
     const onPointerMove = (event: PointerEvent) => {
       const rect = card.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
@@ -77,10 +88,18 @@ export function WeftUsageLimitsSection({
       const y = ((event.clientY - rect.top) / rect.height) * 100;
       card.style.setProperty("--weft-mx", `${x.toFixed(1)}%`);
       card.style.setProperty("--weft-my", `${y.toFixed(1)}%`);
+      card.dataset.weftHover = "true";
     };
     card.addEventListener("pointermove", onPointerMove, { passive: true });
+    card.addEventListener("pointerleave", clearHover, { passive: true });
+    card.addEventListener("pointercancel", clearHover, { passive: true });
+    window.addEventListener("blur", clearHover);
     return () => {
       card.removeEventListener("pointermove", onPointerMove);
+      card.removeEventListener("pointerleave", clearHover);
+      card.removeEventListener("pointercancel", clearHover);
+      window.removeEventListener("blur", clearHover);
+      delete card.dataset.weftHover;
       delete card.dataset.weftGlassCard;
       card.style.removeProperty("--weft-mx");
       card.style.removeProperty("--weft-my");
@@ -106,14 +125,15 @@ export function WeftUsageLimitsSection({
 
         <div data-weft-lg="stack">
           {cards.map((card) => {
-            const isOpen = expandedId === card.instanceId;
+            const toggleKey = `${providerInstanceId ?? ""}:${card.instanceId}`;
+            const canExpand = card.windows.length > 0;
+            const isOpen = canExpand && (manualOpenByKey[toggleKey] ?? card.isCurrent);
             const primary = card.primary;
             const tone = primary?.tone ?? "ok";
             const subtitle =
               card.unavailableNotice !== null
                 ? gt("Unavailable")
-                : buildCompactSubtitle(card, messages, gt);
-            const canExpand = card.windows.length > 0;
+                : buildCompactSubtitle(card, model, isOpen, messages, gt);
 
             return (
               <div
@@ -130,9 +150,10 @@ export function WeftUsageLimitsSection({
                   aria-expanded={canExpand ? isOpen : undefined}
                   onClick={() => {
                     if (!canExpand) return;
-                    setExpandedId((current) =>
-                      current === card.instanceId ? null : card.instanceId,
-                    );
+                    setManualOpenByKey((current) => ({
+                      ...current,
+                      [toggleKey]: !isOpen,
+                    }));
                   }}
                 >
                   <div data-weft-lg="row-top">
@@ -148,7 +169,12 @@ export function WeftUsageLimitsSection({
                     <div data-weft-lg="meta">
                       <div data-weft-lg="name-line">
                         <span data-weft-lg="name">{card.displayName}</span>
-                        {card.isCurrent ? <span data-weft-lg="now-dot" aria-hidden /> : null}
+                        {card.isCurrent ? (
+                          <span data-weft-lg="current-badge">
+                            <span data-weft-lg="now-dot" aria-hidden />
+                            <span>{gt("Current")}</span>
+                          </span>
+                        ) : null}
                       </div>
                       <div data-weft-lg="sub">{subtitle}</div>
                     </div>
@@ -196,7 +222,12 @@ export function WeftUsageLimitsSection({
                         {card.windows.map((window) => {
                           const reset = formatShortReset(window, messages);
                           return (
-                            <div key={window.id} data-weft-lg="subwin" data-tone={window.tone}>
+                            <div
+                              key={window.id}
+                              data-weft-lg="subwin"
+                              data-tone={window.tone}
+                              data-active-model={window.matchesCurrentModel ? "true" : undefined}
+                            >
                               <div data-weft-lg="subhead">
                                 <span>
                                   {window.label}
@@ -227,10 +258,12 @@ export function WeftUsageLimitsSection({
                             </div>
                           );
                         })}
-                        <Link to="/usage" data-weft-lg="drawer-link">
-                          <span>{gt("Open full usage")}</span>
-                          <ArrowUpRightIcon className="size-3" aria-hidden />
-                        </Link>
+                        {!card.isCurrent ? (
+                          <Link to="/usage" data-weft-lg="drawer-link">
+                            <span>{gt("Open full usage")}</span>
+                            <ArrowUpRightIcon className="size-3" aria-hidden />
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
                   </div>
