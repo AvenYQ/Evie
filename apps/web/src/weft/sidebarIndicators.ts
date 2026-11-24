@@ -1,4 +1,5 @@
 import { observeResize } from "~/lib/observeResize";
+import { EASE_OUT } from "./motion";
 
 // Weft: hover/selection capsules and guide ticks that slide between project thread rows.
 const ROW = '[data-sidebar-row][data-sidebar-parent^="folder:"]';
@@ -17,7 +18,7 @@ export type RowEnterMotion = { travel: number; duration: number; delay: number; 
 
 const CROSS_GROUP_OUT_MS = 110;
 const CROSS_GROUP_IN_MS = 150;
-const CROSS_GROUP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+const CROSS_GROUP_EASING = EASE_OUT;
 const CROSS_GROUP_NUDGE = 4;
 
 type RunningPath =
@@ -61,7 +62,12 @@ function simulate(from: Sample, target: Span, dt: number) {
   for (let step = 0; step < 600; step++) {
     const down = target.bottom > state.bottom || target.top > state.top;
     const [top, vTop] = spring(state.top, state.vTop, target.top, down ? soft : STIFF);
-    const [bottom, vBottom] = spring(state.bottom, state.vBottom, target.bottom, down ? STIFF : soft);
+    const [bottom, vBottom] = spring(
+      state.bottom,
+      state.vBottom,
+      target.bottom,
+      down ? STIFF : soft,
+    );
     state = { top, bottom, vTop, vBottom };
     const settled =
       Math.abs(target.top - top) +
@@ -168,28 +174,40 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
   };
 
   return {
-    moveTo(next: Span | null) {
+    // `hidden` keeps tracking the row while transparent, so the piece slides out of a row
+    // where it was hidden instead of popping up at the next one.
+    moveTo(next: Span | null, hidden = false) {
       if (next === null) {
         if (visible) element.style.opacity = "0";
         visible = false;
         return;
       }
-      if (visible && sameSpan(target, next)) return;
+      const opacity = hidden ? "0" : "1";
+      if (visible && sameSpan(target, next)) {
+        element.style.opacity = opacity;
+        return;
+      }
       const previous = target;
       target = next;
       if (!visible || reducedMotion?.matches) {
         stop();
         place(next);
-        element.style.opacity = "1";
+        element.style.opacity = opacity;
         visible = true;
         return;
       }
+      element.style.opacity = opacity;
       const from = current();
       const crossGroup =
         previous !== null &&
         previous.group !== null &&
         next.group !== null &&
         previous.group !== next.group;
+      if (crossGroup && hidden) {
+        stop();
+        place(next);
+        return;
+      }
       if (crossGroup) {
         spawnFadeOutGhost(from, previous.left, previous.width);
         stop();
@@ -370,17 +388,23 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     };
   };
 
+  // Over the selected row the hover pieces stay on that row but transparent.
+  const moveHover = (selectedRow: HTMLElement | null) => {
+    const hover = measure(hovered);
+    const hidden = hovered !== null && hovered === selectedRow;
+    hoverCapsule.moveTo(hover?.capsule ?? null, hidden);
+    hoverTick.moveTo(hover?.tick ?? null, hidden);
+  };
+
   const sync = () => {
     if (!layer.isConnected) list.append(layer);
     const selectedRow = resolveSelectedRow();
     lastSelectedRow = selectedRow;
     followingSelected = false;
     const selected = measure(selectedRow);
-    const hover = hovered === selectedRow ? null : measure(hovered);
     selectedCapsule.moveTo(selected?.capsule ?? null);
     selectedTick.moveTo(selected?.tick ?? null);
-    hoverCapsule.moveTo(hover?.capsule ?? null);
-    hoverTick.moveTo(hover?.tick ?? null);
+    moveHover(selectedRow);
   };
 
   // Called synchronously by sidebarListMotion before starting row FLIP transforms, so an
@@ -412,8 +436,7 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
         hoverCapsule.follow(hover.capsule, hoverShift);
         hoverTick.follow(hover.tick, hoverShift);
       } else {
-        hoverCapsule.moveTo(hover?.capsule ?? null);
-        hoverTick.moveTo(hover?.tick ?? null);
+        moveHover(selectedRow);
       }
       return;
     }
@@ -428,9 +451,7 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
           followingSelected = false;
           sync();
         });
-        const hover = hovered === selectedRow ? null : measure(hovered);
-        hoverCapsule.moveTo(hover?.capsule ?? null);
-        hoverTick.moveTo(hover?.tick ?? null);
+        moveHover(selectedRow);
         return;
       }
     }
@@ -449,7 +470,11 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     }, 180);
   };
 
+  let lastPointer: { x: number; y: number } | null = null;
   const onPointerMove = (event: PointerEvent) => {
+    // A tap is not a hover; touch would leave the hover pieces stuck on the tapped row.
+    if (event.pointerType === "touch") return;
+    lastPointer = { x: event.clientX, y: event.clientY };
     const target = event.target instanceof Element ? event.target : null;
     const anyRow = target?.closest<HTMLElement>("[data-sidebar-row]") ?? null;
     // In the gap between two rows the pointer is still "on" the row it came from; dropping
@@ -465,15 +490,14 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     if (row === hovered) return;
     hovered = row;
     if (followingSelected && resolveSelectedRow() === lastSelectedRow) {
-      const hover = hovered === lastSelectedRow ? null : measure(hovered);
-      hoverCapsule.moveTo(hover?.capsule ?? null);
-      hoverTick.moveTo(hover?.tick ?? null);
+      moveHover(lastSelectedRow);
       return;
     }
     sync();
   };
   const onPointerLeave = () => {
     hovered = null;
+    lastPointer = null;
     if (followingSelected && resolveSelectedRow() === lastSelectedRow) {
       hoverCapsule.moveTo(null);
       hoverTick.moveTo(null);
@@ -497,6 +521,22 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     }, 1500);
     sync();
   };
+  // Wheel scrolling moves rows under a still pointer without any pointermove.
+  const scroller = list.closest<HTMLElement>('[data-slot="scroll-area-viewport"]');
+  let scrollFrame = 0;
+  const onScroll = () => {
+    if (lastPointer === null || scrollFrame) return;
+    scrollFrame = window.requestAnimationFrame(() => {
+      scrollFrame = 0;
+      if (lastPointer === null) return;
+      const under = doc.elementFromPoint(lastPointer.x, lastPointer.y);
+      const row = under?.closest<HTMLElement>(ROW) ?? null;
+      if (row === hovered || (row !== null && !list.contains(row))) return;
+      hovered = row;
+      sync();
+    });
+  };
+  scroller?.addEventListener("scroll", onScroll, { passive: true });
   list.addEventListener("click", onClick);
   list.addEventListener("pointermove", onPointerMove, { passive: true });
   list.addEventListener("pointerleave", onPointerLeave);
@@ -526,6 +566,8 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     dispose() {
       clearTimeout(settleTimer);
       clearTimeout(pendingTimer);
+      window.cancelAnimationFrame(scrollFrame);
+      scroller?.removeEventListener("scroll", onScroll);
       list.removeEventListener("click", onClick);
       mutations.disconnect();
       stopResize();

@@ -41,7 +41,6 @@ export interface WeftAgentUsageCard {
   readonly isCurrent: boolean;
   readonly windows: readonly WeftUsageWindow[];
   readonly primary: WeftUsageWindow | null;
-  readonly secondary: WeftUsageWindow | null;
   readonly unavailableNotice: string | null;
 }
 
@@ -128,6 +127,9 @@ export function resolveAllAgentUsageCards(input: {
   if (!providers || providers.length === 0) return [];
   const readable: WeftAgentUsageCard[] = [];
   let currentUnavailable: WeftAgentUsageCard | null = null;
+  // A read failure on the agent in use matters even when other agents read fine;
+  // an account with no subscription limits does not.
+  let currentFailed = false;
 
   for (const provider of providers) {
     if (!provider.enabled || !provider.installed) continue;
@@ -174,6 +176,8 @@ export function resolveAllAgentUsageCards(input: {
       const notice = limitsNotice(resolved.limits);
       if (notice !== null) {
         unavailableNotice = notice;
+        if (isCurrent && resolved.limits.unavailable?.reason === "probeFailed")
+          currentFailed = true;
       } else {
         windows = resolved.limits.windows.map((window) => {
           const left = remainingPercent(window);
@@ -206,13 +210,11 @@ export function resolveAllAgentUsageCards(input: {
       isCurrent,
       windows: orderedWindows,
       primary: pickPrimaryWindow(provider.driver, orderedWindows, model, isCurrent),
-      secondary: null,
       unavailableNotice,
     };
 
     if (orderedWindows.length > 0 && card.primary !== null) {
-      const secondary = orderedWindows.find((window) => window.id !== card.primary!.id) ?? null;
-      readable.push({ ...card, secondary });
+      readable.push(card);
     } else if (isCurrent && unavailableNotice !== null) {
       currentUnavailable = card;
     }
@@ -224,5 +226,5 @@ export function resolveAllAgentUsageCards(input: {
 
   // Keep current thread's agent first; preserve stable configured order for all others.
   readable.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
-  return readable;
+  return currentFailed && currentUnavailable ? [currentUnavailable, ...readable] : readable;
 }

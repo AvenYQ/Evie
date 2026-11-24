@@ -1,12 +1,14 @@
 import type { ThreadDetailsUsageInput } from "../components/chat/ThreadDetailsUsage";
 import { ThreadDetailsSection } from "../components/chat/ThreadDetailsSection";
 import { ProviderInstanceIcon } from "../components/chat/ProviderInstanceIcon";
+import { getDisplayModelName } from "../components/chat/providerIconUtils";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useNowMinute } from "../hooks/useNowMinute";
 import { formatDuration } from "@t3tools/shared/usageLimitsCopy";
 import { Link } from "@tanstack/react-router";
 import { useGT, useMessages } from "gt-react";
-import { ArrowUpRightIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowUpRightIcon, ChevronDownIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   resolveAllAgentUsageCards,
   type WeftAgentUsageCard,
@@ -21,27 +23,42 @@ function formatShortReset(
   return formatDuration(window.resetMs, messages);
 }
 
-function buildCompactSubtitle(
+// The subtitle stays the same whether the card is open or closed, so toggling never swaps text.
+function buildSubtitle(
   card: WeftAgentUsageCard,
-  model: string | null,
-  isOpen: boolean,
+  modelName: string | null,
   messages: ReturnType<typeof useMessages>,
   gt: ReturnType<typeof useGT>,
 ): string {
-  if (card.isCurrent && isOpen && model) {
-    return model;
-  }
+  if (card.unavailableNotice !== null) return card.unavailableNotice;
+  if (card.isCurrent && modelName) return modelName;
+  // Describes the big number on the right: which window it is and when that window resets.
   const parts: string[] = [];
-  if (card.secondary) {
-    parts.push(`${card.secondary.label} ${card.secondary.remainingPercent}%`);
-  } else if (card.primary) {
-    parts.push(card.primary.label);
-  }
+  if (card.primary) parts.push(card.primary.label);
   const reset = formatShortReset(card.primary, messages);
   if (reset) {
-    parts.push(gt("{duration} reset", { duration: reset }));
+    parts.push(gt("Resets in {duration}", { duration: reset }));
   }
   return parts.join(" · ");
+}
+
+function UsageTube({ window, label }: { window: WeftUsageWindow; label: string }) {
+  return (
+    <div data-weft-lg="tube" role="img" aria-label={label}>
+      <span
+        data-weft-lg="tube-fill"
+        style={{
+          width: window.remainingPercent > 0 ? `max(${window.remainingPercent}%, 6px)` : "0%",
+        }}
+      />
+      {window.timeLeftPercent !== null ? (
+        <span
+          data-weft-lg="tube-pin"
+          style={{ left: `clamp(1px, ${window.timeLeftPercent}%, calc(100% - 1px))` }}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -59,6 +76,13 @@ export function WeftUsageLimitsSection({
   const messages = useMessages();
   const nowMinute = useNowMinute();
   const now = Date.parse(`${nowMinute}:00Z`);
+  const currentModel =
+    model === null
+      ? undefined
+      : providers
+          .find((provider) => provider.instanceId === providerInstanceId)
+          ?.models.find((candidate) => candidate.slug === model);
+  const modelName = currentModel ? getDisplayModelName(currentModel) : model;
   const cards = resolveAllAgentUsageCards({
     providerInstanceId,
     model,
@@ -78,17 +102,31 @@ export function WeftUsageLimitsSection({
     const card = hostEl?.closest<HTMLElement>("[data-thread-details-card]");
     if (!card) return;
     card.dataset.weftGlassCard = "";
+    const view = card.ownerDocument.defaultView;
+    let frame = 0;
+    let pointer: { x: number; y: number } | null = null;
     const clearHover = () => {
+      if (frame) view?.cancelAnimationFrame(frame);
+      frame = 0;
       delete card.dataset.weftHover;
     };
-    const onPointerMove = (event: PointerEvent) => {
+    // At most one style write per frame: the sheen sits over a backdrop-filter surface.
+    const paint = () => {
+      frame = 0;
+      if (pointer === null) return;
       const rect = card.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
-      const x = ((event.clientX - rect.left) / rect.width) * 100;
-      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      const x = ((pointer.x - rect.left) / rect.width) * 100;
+      const y = ((pointer.y - rect.top) / rect.height) * 100;
       card.style.setProperty("--weft-mx", `${x.toFixed(1)}%`);
       card.style.setProperty("--weft-my", `${y.toFixed(1)}%`);
       card.dataset.weftHover = "true";
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+      if (view?.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      pointer = { x: event.clientX, y: event.clientY };
+      if (!frame && view) frame = view.requestAnimationFrame(paint);
     };
     card.addEventListener("pointermove", onPointerMove, { passive: true });
     card.addEventListener("pointerleave", clearHover, { passive: true });
@@ -99,7 +137,7 @@ export function WeftUsageLimitsSection({
       card.removeEventListener("pointerleave", clearHover);
       card.removeEventListener("pointercancel", clearHover);
       window.removeEventListener("blur", clearHover);
-      delete card.dataset.weftHover;
+      clearHover();
       delete card.dataset.weftGlassCard;
       card.style.removeProperty("--weft-mx");
       card.style.removeProperty("--weft-my");
@@ -116,9 +154,9 @@ export function WeftUsageLimitsSection({
     >
       <div ref={setHostEl} data-weft-usage="">
         <div data-weft-lg="head">
-          <span data-weft-lg="title">{gt("Agent quotas")}</span>
+          <span data-weft-lg="title">{gt("Usage limits")}</span>
           <Link to="/usage" data-weft-lg="link">
-            <span>{gt("Details")}</span>
+            <span>{gt("Open usage")}</span>
             <ArrowUpRightIcon className="size-3" aria-hidden />
           </Link>
         </div>
@@ -130,10 +168,58 @@ export function WeftUsageLimitsSection({
             const isOpen = canExpand && (manualOpenByKey[toggleKey] ?? card.isCurrent);
             const primary = card.primary;
             const tone = primary?.tone ?? "ok";
-            const subtitle =
-              card.unavailableNotice !== null
-                ? gt("Unavailable")
-                : buildCompactSubtitle(card, model, isOpen, messages, gt);
+            const drawerId = `weft-usage-drawer-${card.instanceId}`;
+
+            const summary: ReactNode = (
+              <>
+                <div data-weft-lg="row-top">
+                  <span data-weft-lg="orb" aria-hidden>
+                    <ProviderInstanceIcon
+                      driverKind={card.driver}
+                      displayName={card.displayName}
+                      accentColor={card.accentColor}
+                      size="compact"
+                      showBadge={false}
+                    />
+                  </span>
+                  <div data-weft-lg="meta">
+                    <div data-weft-lg="name-line">
+                      <span data-weft-lg="name">{card.displayName}</span>
+                      {card.isCurrent ? (
+                        <span data-weft-lg="current-badge">
+                          <span data-weft-lg="now-dot" aria-hidden />
+                          <span>{gt("Current", { $context: "the agent this thread uses" })}</span>
+                        </span>
+                      ) : null}
+                    </div>
+                    <div data-weft-lg="sub">{buildSubtitle(card, modelName, messages, gt)}</div>
+                  </div>
+                  {primary !== null ? (
+                    <div data-weft-lg="val">
+                      {primary.remainingPercent}
+                      <small>%</small>
+                    </div>
+                  ) : (
+                    <div data-weft-lg="val" data-unavailable="true">
+                      --
+                    </div>
+                  )}
+                  {canExpand ? <ChevronDownIcon data-weft-lg="chevron" aria-hidden /> : null}
+                </div>
+
+                {primary !== null ? (
+                  <div data-weft-lg="mini-wrap">
+                    <UsageTube
+                      window={primary}
+                      label={gt("{label}: {left}% left", {
+                        label: primary.label,
+                        left: primary.remainingPercent,
+                      })}
+                    />
+                  </div>
+                ) : null}
+              </>
+            );
 
             return (
               <div
@@ -144,84 +230,54 @@ export function WeftUsageLimitsSection({
                 data-open={isOpen ? "true" : undefined}
               >
                 <div data-weft-lg="wash" aria-hidden />
-                <button
-                  type="button"
-                  data-weft-lg="trigger"
-                  aria-expanded={canExpand ? isOpen : undefined}
-                  onClick={() => {
-                    if (!canExpand) return;
-                    setManualOpenByKey((current) => ({
-                      ...current,
-                      [toggleKey]: !isOpen,
-                    }));
-                  }}
-                >
-                  <div data-weft-lg="row-top">
-                    <span data-weft-lg="orb" aria-hidden>
-                      <ProviderInstanceIcon
-                        driverKind={card.driver}
-                        displayName={card.displayName}
-                        accentColor={card.accentColor}
-                        size="compact"
-                        showBadge={false}
-                      />
-                    </span>
-                    <div data-weft-lg="meta">
-                      <div data-weft-lg="name-line">
-                        <span data-weft-lg="name">{card.displayName}</span>
-                        {card.isCurrent ? (
-                          <span data-weft-lg="current-badge">
-                            <span data-weft-lg="now-dot" aria-hidden />
-                            <span>{gt("Current")}</span>
-                          </span>
-                        ) : null}
-                      </div>
-                      <div data-weft-lg="sub">{subtitle}</div>
-                    </div>
-                    {primary !== null ? (
-                      <div data-weft-lg="val">
-                        {primary.remainingPercent}
-                        <small>%</small>
-                      </div>
-                    ) : (
-                      <div data-weft-lg="val" data-unavailable="true">
-                        --
-                      </div>
-                    )}
-                  </div>
-
-                  {primary !== null ? (
-                    <div data-weft-lg="mini-wrap">
-                      <div data-weft-lg="tube">
-                        <span
-                          data-weft-lg="tube-fill"
-                          style={{
-                            width:
-                              primary.remainingPercent > 0
-                                ? `max(${primary.remainingPercent}%, 6px)`
-                                : "0%",
-                          }}
-                        />
-                        {primary.timeLeftPercent !== null ? (
-                          <span
-                            data-weft-lg="tube-pin"
-                            style={{
-                              left: `clamp(1px, ${primary.timeLeftPercent}%, calc(100% - 1px))`,
-                            }}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                </button>
+                {canExpand ? (
+                  <button
+                    type="button"
+                    data-weft-lg="trigger"
+                    aria-expanded={isOpen}
+                    aria-controls={drawerId}
+                    onClick={() => {
+                      setManualOpenByKey((current) => {
+                        const next = { ...current, [toggleKey]: !isOpen };
+                        // Opening another agent closes the one opened before it; the
+                        // current agent keeps its own state.
+                        if (!isOpen && !card.isCurrent) {
+                          for (const other of cards) {
+                            if (other.isCurrent || other.instanceId === card.instanceId) continue;
+                            delete next[`${providerInstanceId ?? ""}:${other.instanceId}`];
+                          }
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    {summary}
+                  </button>
+                ) : (
+                  <Link to="/usage" data-weft-lg="trigger">
+                    {summary}
+                  </Link>
+                )}
 
                 {canExpand ? (
-                  <div data-weft-lg="drawer">
-                    <div data-weft-lg="drawer-inner">
+                  <div data-weft-lg="drawer" id={drawerId} inert={!isOpen}>
+                    <div data-weft-lg="drawer-inner" data-weft-usage-drawer="">
                       <div data-weft-lg="drawer-content">
                         {card.windows.map((window) => {
                           const reset = formatShortReset(window, messages);
-                          return (
+                          const details = [
+                            window.label,
+                            reset ? gt("Resets in {duration}", { duration: reset }) : null,
+                            window.accountsCount > 1
+                              ? gt(
+                                  "{count, plural, one {{count} account} other {{count} accounts}}",
+                                  {
+                                    count: window.accountsCount,
+                                  },
+                                )
+                              : null,
+                          ].filter((part) => part !== null);
+                          const row = (
                             <div
                               key={window.id}
                               data-weft-lg="subwin"
@@ -229,41 +285,31 @@ export function WeftUsageLimitsSection({
                               data-active-model={window.matchesCurrentModel ? "true" : undefined}
                             >
                               <div data-weft-lg="subhead">
-                                <span>
-                                  {window.label}
-                                  {reset ? ` · ${reset}` : ""}
-                                  {window.accountsCount > 1 ? ` · ${window.accountsCount}` : ""}
-                                </span>
+                                <span>{details.join(" · ")}</span>
                                 <strong>{window.remainingPercent}%</strong>
                               </div>
-                              <div data-weft-lg="tube">
-                                <span
-                                  data-weft-lg="tube-fill"
-                                  style={{
-                                    width:
-                                      window.remainingPercent > 0
-                                        ? `max(${window.remainingPercent}%, 6px)`
-                                        : "0%",
-                                  }}
-                                />
-                                {window.timeLeftPercent !== null ? (
-                                  <span
-                                    data-weft-lg="tube-pin"
-                                    style={{
-                                      left: `clamp(1px, ${window.timeLeftPercent}%, calc(100% - 1px))`,
-                                    }}
-                                  />
-                                ) : null}
-                              </div>
+                              <UsageTube
+                                window={window}
+                                label={gt("{label}: {left}% left", {
+                                  label: window.label,
+                                  left: window.remainingPercent,
+                                })}
+                              />
                             </div>
                           );
+                          if (window.timeLeftPercent === null) return row;
+                          // The pin on the bar marks how much of the window's time is left.
+                          return (
+                            <Tooltip key={window.id}>
+                              <TooltipTrigger render={row} />
+                              <TooltipPopup side="left" sideOffset={16}>
+                                {gt("{timeLeft}% of the window left", {
+                                  timeLeft: window.timeLeftPercent,
+                                })}
+                              </TooltipPopup>
+                            </Tooltip>
+                          );
                         })}
-                        {!card.isCurrent ? (
-                          <Link to="/usage" data-weft-lg="drawer-link">
-                            <span>{gt("Open full usage")}</span>
-                            <ArrowUpRightIcon className="size-3" aria-hidden />
-                          </Link>
-                        ) : null}
                       </div>
                     </div>
                   </div>

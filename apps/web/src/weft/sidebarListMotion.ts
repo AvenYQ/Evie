@@ -1,24 +1,35 @@
+import {
+  DURATION_HOVER,
+  DURATION_LAYOUT,
+  EASE_DRAWER,
+  EASE_IN,
+  EASE_OUT,
+  EASE_STOCK,
+} from "./motion";
 import type { RowEnterMotion, RowShiftMotion, WeftSidebarIndicators } from "./sidebarIndicators";
 
 // Weft: compositor-only sidebar list motion (Preset A: staggered cascade reveal + clipped
 // collapse curtain + new-thread entry + lockstep indicator follow).
-const OPEN_DURATION = 250;
+const OPEN_DURATION = DURATION_LAYOUT;
 const CLOSE_DURATION = 210;
 const NEW_THREAD_DURATION = 280;
 const NEW_THREAD_SHIFT_DURATION = 260;
-const OPEN_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
-const CLOSE_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
+const NEW_THREAD_TRAVEL = -10;
+const OPEN_EASING = EASE_OUT;
+const CLOSE_EASING = EASE_DRAWER;
 const CASCADE_STAGGER = 22;
 const CASCADE_MAX_DELAY = 110;
 const CLOSE_ROW_DURATION = 130;
 const CLOSE_ROW_STAGGER = 14;
 const CLOSE_ROW_MAX_DELAY = 70;
 const FRESH_INK_DURATION = 560;
-const STOCK_TIMING = { duration: 150, easing: "ease-out" } as const;
+const STOCK_TIMING = { duration: DURATION_HOVER, easing: EASE_STOCK } as const;
 const MAX_FADED_ROWS_PER_UPDATE = 40;
 const VIEWPORT_MARGIN = 120;
 
 const rowTravel = (height: number) => Math.min(height, 40);
+
+type RemovedRow = { node: HTMLElement; position: RowSnapshot; visualTop: number; opacity: number };
 
 type RowSnapshot = {
   top: number;
@@ -157,7 +168,12 @@ export function createWeftSidebarListMotion(
     freshTimers.set(row, timer);
   };
 
-  const fadeOutStock = (node: HTMLElement, position: RowSnapshot, travel: number, shift: number) => {
+  const fadeOutStock = (
+    node: HTMLElement,
+    position: RowSnapshot,
+    travel: number,
+    shift: number,
+  ) => {
     if (position.height === 0) return;
     const clone = node.cloneNode(true) as HTMLElement;
     stripCloneIdentifiers(clone);
@@ -198,11 +214,13 @@ export function createWeftSidebarListMotion(
   };
 
   const collapseFolderCurtain = (
-    items: Array<{ node: HTMLElement; position: RowSnapshot; visualTop: number }>,
+    items: Array<RemovedRow>,
     topAnchor: number,
     isFolderClose: boolean,
   ) => {
-    const visibleItems = items.filter((item) => isNearViewport(item.visualTop, item.position.height));
+    const visibleItems = items.filter((item) =>
+      isNearViewport(item.visualTop, item.position.height),
+    );
     if (visibleItems.length === 0) return;
     const last = visibleItems[visibleItems.length - 1]!;
     const totalH = Math.max(0, last.visualTop + last.position.height - topAnchor);
@@ -226,7 +244,7 @@ export function createWeftSidebarListMotion(
       zIndex: "0",
     });
 
-    visibleItems.forEach(({ node, position, visualTop }, index) => {
+    visibleItems.forEach(({ node, position, visualTop, opacity }, index) => {
       const clone = node.cloneNode(true) as HTMLElement;
       stripCloneIdentifiers(clone);
       clone.setAttribute("aria-hidden", "true");
@@ -250,19 +268,16 @@ export function createWeftSidebarListMotion(
       const duration = isFolderClose ? CLOSE_ROW_DURATION : 160;
       clone.animate(
         [
-          { opacity: 1, transform: "translateY(0px)" },
+          { opacity, transform: "translateY(0px)" },
           { opacity: 0, transform: "translateY(-6px)" },
         ],
-        { duration, delay, easing: "ease-in", fill: "forwards" },
+        { duration, delay, easing: EASE_IN, fill: "both" },
       );
     });
 
     parent.append(curtain);
     const clipAnim = curtain.animate(
-      [
-        { clipPath: "inset(0px 0px 0px 0px)" },
-        { clipPath: `inset(0px 0px ${totalH}px 0px)` },
-      ],
+      [{ clipPath: "inset(0px 0px 0px 0px)" }, { clipPath: `inset(0px 0px ${totalH}px 0px)` }],
       { duration: CLOSE_DURATION, easing: CLOSE_EASING, fill: "forwards" },
     );
     curtains.set(curtain, clipAnim);
@@ -389,10 +404,7 @@ export function createWeftSidebarListMotion(
       };
 
       const enteredByFolder = new Map<string, HTMLElement[]>();
-      const removedByFolder = new Map<
-        string,
-        Array<{ node: HTMLElement; position: RowSnapshot; visualTop: number }>
-      >();
+      const removedByFolder = new Map<string, Array<RemovedRow>>();
       let hasNewThreadInOpenFolder = false;
 
       if (!shouldAnimate) {
@@ -422,11 +434,18 @@ export function createWeftSidebarListMotion(
               node,
               position,
               visualTop: position.top + remainingOffset(node) + shift,
+              // A row still fading in (expand interrupted by collapse) leaves from where it is.
+              opacity: entering.has(node) ? progress(entering.get(node)!.animation) : 1,
             });
             removedByFolder.set(position.parentFolder, listForFolder);
           } else {
             const delta = ridingDelta(oldOrder, oldOrder.indexOf(node), (n) => next.has(n));
-            fadeOutStock(node, position, delta === undefined ? rowTravel(position.height) : -delta, shift);
+            fadeOutStock(
+              node,
+              position,
+              delta === undefined ? rowTravel(position.height) : -delta,
+              shift,
+            );
           }
         }
       }
@@ -464,7 +483,19 @@ export function createWeftSidebarListMotion(
         // revealed inside an expanding folder enter together with that row.
         const plannedFolderEnters = new Map<HTMLElement, RowEnterMotion>();
         for (const [folderKey, group] of enteredByFolder) {
-          if (!openedFolders.has(folderKey)) continue;
+          if (!openedFolders.has(folderKey)) {
+            for (const node of group) {
+              const pos = next.get(node)!;
+              if (!isNearViewport(pos.top, pos.height)) continue;
+              plannedFolderEnters.set(node, {
+                travel: NEW_THREAD_TRAVEL,
+                duration: NEW_THREAD_DURATION,
+                delay: 0,
+                easing: OPEN_EASING,
+              });
+            }
+            continue;
+          }
           const visibleGroup = group.filter((node) => {
             const pos = next.get(node)!;
             return isNearViewport(pos.top, pos.height);
@@ -545,12 +576,12 @@ export function createWeftSidebarListMotion(
               markFresh(node);
               const animation = node.animate(
                 [
-                  { opacity: 0, transform: "translateY(-10px) scale(0.985)" },
+                  { opacity: 0, transform: `translateY(${NEW_THREAD_TRAVEL}px) scale(0.985)` },
                   { opacity: 1, transform: "translateY(0px) scale(1)" },
                 ],
                 { duration: NEW_THREAD_DURATION, easing: OPEN_EASING },
               );
-              entering.set(node, { animation, travel: -10 });
+              entering.set(node, { animation, travel: NEW_THREAD_TRAVEL });
               animation.addEventListener(
                 "finish",
                 () => {
@@ -567,7 +598,11 @@ export function createWeftSidebarListMotion(
           const position = next.get(node)!;
           const previousTop = positions!.get(node)?.top;
           if (previousTop === undefined) {
-            if (!animatedFolderEnters.has(node) && position.height > 0 && position.parentFolder === null) {
+            if (
+              !animatedFolderEnters.has(node) &&
+              position.height > 0 &&
+              position.parentFolder === null
+            ) {
               const delta = ridingDelta(nextOrder, index, (n) => positions!.has(n));
               const travel = delta === undefined ? -rowTravel(position.height) : delta;
               const animation = node.animate(
@@ -597,7 +632,8 @@ export function createWeftSidebarListMotion(
         if (!reducedMotion?.matches) {
           for (const [node, position] of next) {
             const top = released.get(node);
-            if (top !== undefined) move(node, top - position.top, STOCK_TIMING.duration, STOCK_TIMING.easing);
+            if (top !== undefined)
+              move(node, top - position.top, STOCK_TIMING.duration, STOCK_TIMING.easing);
           }
         }
         released = null;

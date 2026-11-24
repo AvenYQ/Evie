@@ -152,11 +152,9 @@ describe("resolveAllAgentUsageCards", () => {
     expect(cards[0]?.primary?.id).toBe("five_hour");
     expect(cards[0]?.primary?.remainingPercent).toBe(15);
     expect(cards[0]?.primary?.tone).toBe("warning");
-    expect(cards[0]?.secondary?.id).toBe("seven_day");
     // Codex has 5h at 82% left and 7d at 54% left -> bottleneck 7d surfaces as primary.
     expect(cards[1]?.primary?.id).toBe("seven_day");
     expect(cards[1]?.primary?.remainingPercent).toBe(54);
-    expect(cards[1]?.secondary?.id).toBe("five_hour");
     // Antigravity at 8% left -> error tone.
     expect(cards[2]?.primary?.remainingPercent).toBe(8);
     expect(cards[2]?.primary?.tone).toBe("error");
@@ -196,7 +194,6 @@ describe("resolveAllAgentUsageCards", () => {
     expect(cards).toHaveLength(1);
     expect(cards[0]?.primary?.id).toBe("gemini-pro");
     expect(cards[0]?.primary?.remainingPercent).toBe(70);
-    expect(cards[0]?.secondary?.id).toBe("claude-gpt");
     expect(cards[0]?.windows.map((window) => window.id)).toEqual(["gemini-pro", "claude-gpt"]);
     expect(cards[0]?.windows[0]?.matchesCurrentModel).toBe(true);
     expect(cards[0]?.windows[1]?.matchesCurrentModel).toBe(false);
@@ -244,6 +241,46 @@ describe("resolveAllAgentUsageCards", () => {
     expect(cards).toHaveLength(1);
     expect(cards[0]?.primary).toBeNull();
     expect(cards[0]?.unavailableNotice).not.toBeNull();
+  });
+
+  it("keeps a read failure on the current agent visible next to readable agents", () => {
+    const readable = makeProvider({
+      id: "codex",
+      driver: "codex",
+      usageLimits: {
+        checkedAt,
+        windows: [
+          {
+            id: "five_hour",
+            kind: "session",
+            label: "5h",
+            usedPercent: 10,
+            windowDurationMins: 300,
+            resetsAt: "2026-10-30T15:00:00.000Z",
+          },
+        ],
+      },
+    });
+    const cardsFor = (reason: "probeFailed" | "unsupported") =>
+      resolveAllAgentUsageCards({
+        providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+        model: null,
+        providers: [
+          readable,
+          makeProvider({
+            id: "claudeAgent",
+            driver: "claudeAgent",
+            usageLimits: { checkedAt, windows: [], unavailable: { reason } },
+          }),
+        ],
+        sources: [],
+        now,
+      });
+
+    const failed = cardsFor("probeFailed");
+    expect(failed.map((card) => card.instanceId)).toEqual(["claudeAgent", "codex"]);
+    expect(failed[0]?.unavailableNotice).not.toBeNull();
+    expect(cardsFor("unsupported").map((card) => card.instanceId)).toEqual(["codex"]);
   });
 
   it("resolves pooled hub limits for a custom-endpoint provider", () => {

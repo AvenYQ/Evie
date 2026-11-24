@@ -141,6 +141,25 @@ describe("createWeftSidebarIndicators", () => {
     expect(indicator("hover-tick").style.opacity).toBe("0");
   });
 
+  it("slides the hover tick out of the selected row instead of popping up at the next row", async () => {
+    using harness = mount(3);
+    const { rows, indicator } = harness;
+    rows[1]!.setAttribute("aria-current", "page");
+    await vi.waitFor(() => {
+      expect(indicator("selected-tick").style.opacity).toBe("1");
+    });
+    const tick = indicator("hover-tick");
+    rows[1]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    expect(tick.style.opacity).toBe("0");
+    expect(translateY(tick)).toBeCloseTo(40 + 11, 0);
+    rows[2]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    expect(tick.style.opacity).toBe("1");
+    const slide = waapiAnimations(tick)[0]!;
+    slide.pause();
+    slide.currentTime = 0;
+    expect(shown(tick).top).toBeCloseTo(40 + 11, 0);
+  });
+
   it("fades out and fades in without stretching when moving across different project folders", async () => {
     using harness = mount(6);
     const { list, rows, indicator } = harness;

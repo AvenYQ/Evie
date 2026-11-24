@@ -28,10 +28,7 @@ import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import { ThreadRepositorySections } from "./ThreadRepositorySections";
 import { ThreadServersPanel } from "./ThreadServersPanel";
-import {
-  ThreadDetailsContext,
-  type ThreadDetailsUsageInput,
-} from "./ThreadDetailsUsage";
+import { ThreadDetailsContext, type ThreadDetailsUsageInput } from "./ThreadDetailsUsage";
 import { WeftUsageLimitsSection } from "../../weft/WeftUsageLimitsSection";
 import { ThreadDetailsItemsMenuItems } from "./ThreadDetailsItemsMenu";
 import { resolveThreadDetailsVisibility, THREAD_DETAILS_ITEMS } from "./threadDetailsItems";
