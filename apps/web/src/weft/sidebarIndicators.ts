@@ -10,10 +10,15 @@ const STRETCH = 2.8;
 const DAMPING = 0.72;
 const ROW_GAP_TOLERANCE = 12;
 
-type Span = { top: number; bottom: number; left: number; width: number };
+type Span = { top: number; bottom: number; left: number; width: number; group: string | null };
 type Sample = { top: number; bottom: number; vTop: number; vBottom: number };
 export type RowShiftMotion = { deltaY: number; duration: number; easing: string };
 export type RowEnterMotion = { travel: number; duration: number; delay: number; easing: string };
+
+const CROSS_GROUP_OUT_MS = 110;
+const CROSS_GROUP_IN_MS = 150;
+const CROSS_GROUP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+const CROSS_GROUP_NUDGE = 4;
 
 type RunningPath =
   | { kind: "spring"; samples: Sample[]; dt: number; animation: Animation }
@@ -73,6 +78,7 @@ function simulate(from: Sample, target: Span, dt: number) {
 
 const sameSpan = (a: Span | null, b: Span) =>
   a !== null &&
+  a.group === b.group &&
   Math.abs(a.top - b.top) < 0.5 &&
   Math.abs(a.bottom - b.bottom) < 0.5 &&
   Math.abs(a.left - b.left) < 0.5 &&
@@ -83,6 +89,7 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
   let rest: Sample = { top: 0, bottom: 0, vTop: 0, vBottom: 0 };
   let path: RunningPath | null = null;
   let visible = false;
+  const ghosts = new Set<HTMLElement>();
 
   const transform = (left: number, sample: Sample, height: number) =>
     `translate(${left}px, ${sample.top}px) scaleY(${Math.max(2, sample.bottom - sample.top) / height})`;
@@ -127,6 +134,39 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
     element.style.transform = transform(to.left, rest, height);
   };
 
+  const clearGhosts = () => {
+    for (const ghost of ghosts) ghost.remove();
+    ghosts.clear();
+  };
+
+  const spawnFadeOutGhost = (from: Sample, left: number, width: number) => {
+    const parent = element.parentElement;
+    if (parent === null) return;
+    const height = Math.max(2, from.bottom - from.top);
+    const ghost = element.cloneNode(false) as HTMLElement;
+    ghost.dataset.weftGhost = "";
+    ghost.style.width = `${width}px`;
+    ghost.style.height = `${height}px`;
+    ghost.style.transform = `translate(${left}px, ${from.top}px) scaleY(1)`;
+    ghost.style.opacity = "1";
+    ghost.style.transition = "none";
+    parent.append(ghost);
+    ghosts.add(ghost);
+    const animation = ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: CROSS_GROUP_OUT_MS,
+      easing: "ease-out",
+      fill: "forwards",
+    });
+    animation.addEventListener(
+      "finish",
+      () => {
+        ghost.remove();
+        ghosts.delete(ghost);
+      },
+      { once: true },
+    );
+  };
+
   return {
     moveTo(next: Span | null) {
       if (next === null) {
@@ -135,6 +175,7 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         return;
       }
       if (visible && sameSpan(target, next)) return;
+      const previous = target;
       target = next;
       if (!visible || reducedMotion?.matches) {
         stop();
@@ -144,6 +185,36 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         return;
       }
       const from = current();
+      const crossGroup =
+        previous !== null &&
+        previous.group !== null &&
+        next.group !== null &&
+        previous.group !== next.group;
+      if (crossGroup) {
+        spawnFadeOutGhost(from, previous.left, previous.width);
+        stop();
+        place(next);
+        element.style.opacity = "1";
+        const height = Math.max(2, next.bottom - next.top);
+        const dir = next.top >= from.top ? -1 : 1;
+        const fromTop = next.top + dir * CROSS_GROUP_NUDGE;
+        const animation = element.animate(
+          [
+            { opacity: 0, transform: `translate(${next.left}px, ${fromTop}px) scaleY(1)` },
+            { opacity: 1, transform: `translate(${next.left}px, ${next.top}px) scaleY(1)` },
+          ],
+          { duration: CROSS_GROUP_IN_MS, easing: CROSS_GROUP_EASING },
+        );
+        path = { kind: "follow", fromTop, toTop: next.top, height, animation };
+        animation.addEventListener(
+          "finish",
+          () => {
+            if (path?.animation === animation) path = null;
+          },
+          { once: true },
+        );
+        return;
+      }
       stop();
       place(next);
       const dt = frameStep;
@@ -228,6 +299,7 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
     },
     dispose() {
       stop();
+      clearGhosts();
     },
   };
 }
@@ -279,18 +351,21 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     const hasGuide = guide.content !== "none" && guide.position === "absolute";
     const guideX = rowLeft + (hasGuide ? parseFloat(guide.left) + parseFloat(guide.width) / 2 : 10);
     const capsuleLeft = hasGuide ? guideX + 7.5 : rowLeft;
+    const group = row.dataset.sidebarParent ?? null;
     return {
       capsule: {
         top: top + CAPSULE_GAP,
         bottom: top + box.height - CAPSULE_GAP,
         left: capsuleLeft,
         width: box.right - origin.left - capsuleLeft,
+        group,
       },
       tick: {
         top: top + (box.height - TICK_LENGTH) / 2,
         bottom: top + (box.height + TICK_LENGTH) / 2,
         left: guideX - 1.5,
         width: 3,
+        group,
       },
     };
   };

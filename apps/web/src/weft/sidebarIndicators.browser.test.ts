@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
+import "./weft.css";
 import { createWeftSidebarIndicators } from "./sidebarIndicators";
 
 function mount(rowCount: number) {
@@ -38,6 +39,8 @@ function mount(rowCount: number) {
 
 const translateY = (element: HTMLElement) =>
   Number(/translate\([^,]+,\s*([-\d.]+)px\)/.exec(element.style.transform)?.[1]);
+const waapiAnimations = (element: HTMLElement) =>
+  element.getAnimations().filter((animation) => !(animation instanceof CSSTransition));
 // What is on screen, including a running transform animation.
 const shown = (element: HTMLElement) => {
   const matrix = new DOMMatrix(getComputedStyle(element).transform);
@@ -67,7 +70,7 @@ describe("createWeftSidebarIndicators", () => {
     rows[5]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
     const tick = indicator("hover-tick");
     // The motion is a browser animation, so it keeps playing while the main thread is busy.
-    const animations = tick.getAnimations();
+    const animations = waapiAnimations(tick);
     expect(animations).toHaveLength(1);
     const anim = animations[0]!;
     anim.pause();
@@ -89,7 +92,7 @@ describe("createWeftSidebarIndicators", () => {
     rows[0]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
     rows[5]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
     const tick = indicator("hover-tick");
-    const anim = tick.getAnimations()[0]!;
+    const anim = waapiAnimations(tick)[0]!;
     anim.pause();
     anim.currentTime = 100;
     const before = shown(tick);
@@ -108,7 +111,7 @@ describe("createWeftSidebarIndicators", () => {
     expect(indicator("hover-tick").style.opacity).toBe("1");
     rows[1]!.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
     // It slides over instead of reappearing on the next row.
-    expect(indicator("hover-tick").getAnimations()).toHaveLength(1);
+    expect(waapiAnimations(indicator("hover-tick"))).toHaveLength(1);
   });
 
   it("starts the selected pieces toward a clicked row before the selection commits", async () => {
@@ -119,7 +122,7 @@ describe("createWeftSidebarIndicators", () => {
       expect(indicator("selected-tick").style.opacity).toBe("1");
     });
     rows[3]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(indicator("selected-tick").getAnimations()).toHaveLength(1);
+    expect(waapiAnimations(indicator("selected-tick"))).toHaveLength(1);
     expect(translateY(indicator("selected-tick"))).toBeCloseTo(120 + 11, 0);
   });
 
@@ -136,5 +139,51 @@ describe("createWeftSidebarIndicators", () => {
     expect(indicator("hover-tick").style.opacity).toBe("1");
     list.dispatchEvent(new PointerEvent("pointerleave"));
     expect(indicator("hover-tick").style.opacity).toBe("0");
+  });
+
+  it("fades out and fades in without stretching when moving across different project folders", async () => {
+    using harness = mount(6);
+    const { list, rows, indicator } = harness;
+    // Split into two separate project folders (rows 0-2 in folder A, rows 3-5 in folder B).
+    for (let index = 0; index < 3; index++) rows[index]!.dataset.sidebarParent = "folder:a";
+    for (let index = 3; index < 6; index++) rows[index]!.dataset.sidebarParent = "folder:b";
+
+    rows[0]!.setAttribute("aria-current", "page");
+    const tick = indicator("selected-tick");
+    await vi.waitFor(() => {
+      expect(tick.style.opacity).toBe("1");
+    });
+
+    // Click row 5 in folder B -> should cross-fade instead of stretching across the gap.
+    rows[5]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const ghosts = list.querySelectorAll<HTMLElement>("[data-weft-ghost]");
+    expect(ghosts.length).toBeGreaterThanOrEqual(1);
+
+    const anim = waapiAnimations(tick)[0]!;
+    anim.pause();
+    anim.currentTime = 40;
+    // Length stays at 18px (no rubber-band stretch across folders).
+    expect(shown(tick).length).toBeCloseTo(18, 0);
+    // Position is already near row 5 (200 + 11 = 211), not mid-flight near row 2.
+    expect(shown(tick).top).toBeGreaterThan(200);
+
+    // Finish animations -> ghosts clean up cleanly.
+    anim.finish();
+    for (const ghost of ghosts) {
+      for (const ghostAnim of ghost.getAnimations()) ghostAnim.finish();
+    }
+    await vi.waitFor(() => {
+      expect(list.querySelectorAll("[data-weft-ghost]")).toHaveLength(0);
+    });
+  });
+
+  it("uses translucent capsules so glass sidebar backgrounds show through", () => {
+    using harness = mount(2);
+    const { list, indicator } = harness;
+    list.style.setProperty("--sidebar-foreground", "rgb(255, 255, 255)");
+    const hoverBg = getComputedStyle(indicator("hover-capsule")).backgroundColor;
+    const selectedBg = getComputedStyle(indicator("selected-capsule")).backgroundColor;
+    expect(hoverBg).toMatch(/0\.06|6%/);
+    expect(selectedBg).toMatch(/0\.1\b|10%/);
   });
 });

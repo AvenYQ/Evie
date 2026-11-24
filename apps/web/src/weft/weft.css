@@ -3,8 +3,8 @@
 [data-weft-motion] {
   --weft-tick-color: var(--app-theme-accent, var(--primary));
   --weft-hover-tick: color-mix(in srgb, var(--weft-tick-color) 50%, transparent);
-  --weft-hover-capsule: var(--sidebar-row-hover);
-  --weft-selected-capsule: color-mix(in srgb, var(--sidebar-foreground) 10%, var(--sidebar));
+  --weft-hover-capsule: color-mix(in srgb, var(--sidebar-foreground) 6%, transparent);
+  --weft-selected-capsule: color-mix(in srgb, var(--sidebar-foreground) 10%, transparent);
   position: relative;
   isolation: isolate;
 }
@@ -74,11 +74,13 @@ html.dark[data-theme-id="dune-plotter-tide"] [data-weft-motion] {
   background: transparent !important;
 }
 
-/* Hover nudge: the row content leans a little toward the pointer. */
+/* Hover nudge: unselected rows lean a little toward the pointer; the active row stays steady. */
 [data-weft-motion] [data-sidebar-row][data-sidebar-parent^="folder:"] > div:first-child {
   transition: translate 180ms ease-out;
 }
-[data-weft-motion] [data-sidebar-row][data-sidebar-parent^="folder:"]:hover > div:first-child {
+[data-weft-motion]
+  [data-sidebar-row][data-sidebar-parent^="folder:"]:is(:not([aria-current]), [aria-current="false"]):hover
+  > div:first-child {
   translate: 2px 0;
 }
 
