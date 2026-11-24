@@ -12,6 +12,11 @@ const ROW_GAP_TOLERANCE = 12;
 
 type Span = { top: number; bottom: number; left: number; width: number };
 type Sample = { top: number; bottom: number; vTop: number; vBottom: number };
+export type RowShiftMotion = { deltaY: number; duration: number; easing: string };
+
+type RunningPath =
+  | { kind: "spring"; samples: Sample[]; dt: number; animation: Animation }
+  | { kind: "follow"; fromTop: number; toTop: number; height: number; animation: Animation };
 
 // Step length of the spring simulation; matched to the display's frame interval so the
 // motion is the same as when it was stepped once per frame.
@@ -75,7 +80,7 @@ const sameSpan = (a: Span | null, b: Span) =>
 function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undefined) {
   let target: Span | null = null;
   let rest: Sample = { top: 0, bottom: 0, vTop: 0, vBottom: 0 };
-  let path: { samples: Sample[]; dt: number; animation: Animation } | null = null;
+  let path: RunningPath | null = null;
   let visible = false;
 
   const transform = (left: number, sample: Sample, height: number) =>
@@ -84,6 +89,14 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
   // Where the element is right now, read from the running animation's clock.
   const current = (): Sample => {
     if (path === null) return rest;
+    if (path.kind === "follow") {
+      const progress =
+        path.animation.playState === "finished"
+          ? 1
+          : Number(path.animation.effect?.getComputedTiming().progress ?? 0);
+      const top = path.fromTop + (path.toTop - path.fromTop) * progress;
+      return { top, bottom: top + path.height, vTop: 0, vBottom: 0 };
+    }
     const { samples, dt, animation } = path;
     const elapsed = animation.currentTime === null ? 0 : Number(animation.currentTime) / 1000;
     const position = elapsed / dt;
@@ -140,10 +153,41 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
         samples.map((sample) => ({ transform: transform(next.left, sample, height) })),
         { duration: (samples.length - 1) * dt * 1000, easing: "linear" },
       );
-      path = { samples, dt, animation };
+      path = { kind: "spring", samples, dt, animation };
       animation.addEventListener("finish", () => {
         if (path?.animation === animation) path = null;
       });
+    },
+    follow(next: Span, shift: RowShiftMotion, onFinish?: () => void) {
+      target = next;
+      stop();
+      place(next);
+      element.style.opacity = "1";
+      visible = true;
+      if (reducedMotion?.matches || Math.abs(shift.deltaY) < 0.5) {
+        onFinish?.();
+        return;
+      }
+      const height = Math.max(2, next.bottom - next.top);
+      const fromTop = next.top + shift.deltaY;
+      const animation = element.animate(
+        [
+          { transform: `translate(${next.left}px, ${fromTop}px) scaleY(1)` },
+          { transform: `translate(${next.left}px, ${next.top}px) scaleY(1)` },
+        ],
+        { duration: shift.duration, easing: shift.easing },
+      );
+      path = { kind: "follow", fromTop, toTop: next.top, height, animation };
+      animation.addEventListener(
+        "finish",
+        () => {
+          if (path?.animation === animation) {
+            path = null;
+            onFinish?.();
+          }
+        },
+        { once: true },
+      );
     },
     dispose() {
       stop();
@@ -174,10 +218,18 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   list.append(layer);
 
   let hovered: HTMLElement | null = null;
+  let lastSelectedRow: HTMLElement | null = null;
+  let followingSelected = false;
   // A row just clicked, treated as selected before the app commits the selection, so the
   // selected pieces start moving before the (possibly heavy) conversation render begins.
   let pending: HTMLElement | null = null;
   let pendingTimer = 0;
+
+  const resolveSelectedRow = () => {
+    const committed = list.querySelector<HTMLElement>(SELECTED);
+    if (pending !== null && (pending === committed || !pending.isConnected)) pending = null;
+    return pending ?? committed;
+  };
 
   const measure = (row: HTMLElement | null) => {
     if (row === null || !row.isConnected) return null;
@@ -208,9 +260,9 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
 
   const sync = () => {
     if (!layer.isConnected) list.append(layer);
-    const committed = list.querySelector<HTMLElement>(SELECTED);
-    if (pending !== null && (pending === committed || !pending.isConnected)) pending = null;
-    const selectedRow = pending ?? committed;
+    const selectedRow = resolveSelectedRow();
+    lastSelectedRow = selectedRow;
+    followingSelected = false;
     const selected = measure(selectedRow);
     const hover = hovered === selectedRow ? null : measure(hovered);
     selectedCapsule.moveTo(selected?.capsule ?? null);
@@ -219,12 +271,49 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     hoverTick.moveTo(hover?.tick ?? null);
   };
 
+  // Called synchronously by sidebarListMotion before starting row FLIP transforms, so an
+  // unchanged selected row's tick and capsule ride in 1:1 lockstep instead of lagging behind.
+  const followShift = (shifts: ReadonlyMap<HTMLElement, RowShiftMotion>) => {
+    if (!layer.isConnected) list.append(layer);
+    clearTimeout(settleTimer);
+    const selectedRow = resolveSelectedRow();
+    const selectedLi = selectedRow?.closest("li") ?? null;
+    const selectedShift = selectedLi ? shifts.get(selectedLi) : undefined;
+    if (selectedRow !== null && selectedRow === lastSelectedRow && selectedShift !== undefined) {
+      const selected = measure(selectedRow);
+      if (selected !== null) {
+        followingSelected = true;
+        selectedCapsule.follow(selected.capsule, selectedShift);
+        selectedTick.follow(selected.tick, selectedShift, () => {
+          followingSelected = false;
+        });
+      }
+      const hoverRow = hovered === selectedRow ? null : hovered;
+      const hoverLi = hoverRow?.closest("li") ?? null;
+      const hoverShift = hoverLi ? shifts.get(hoverLi) : undefined;
+      const hover = measure(hoverRow);
+      if (hover !== null && hoverShift !== undefined) {
+        hoverCapsule.follow(hover.capsule, hoverShift);
+        hoverTick.follow(hover.tick, hoverShift);
+      } else {
+        hoverCapsule.moveTo(hover?.capsule ?? null);
+        hoverTick.moveTo(hover?.tick ?? null);
+      }
+      return;
+    }
+    sync();
+  };
+
   // Rows move with the native list motion for a moment after a change; follow them once it settles.
   let settleTimer = 0;
   const syncSoon = () => {
+    if (followingSelected && resolveSelectedRow() === lastSelectedRow) return;
     sync();
     clearTimeout(settleTimer);
-    settleTimer = window.setTimeout(sync, 180);
+    settleTimer = window.setTimeout(() => {
+      if (followingSelected && resolveSelectedRow() === lastSelectedRow) return;
+      sync();
+    }, 180);
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -242,10 +331,21 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     const row = anyRow?.matches(ROW) ? anyRow : null;
     if (row === hovered) return;
     hovered = row;
+    if (followingSelected && resolveSelectedRow() === lastSelectedRow) {
+      const hover = hovered === lastSelectedRow ? null : measure(hovered);
+      hoverCapsule.moveTo(hover?.capsule ?? null);
+      hoverTick.moveTo(hover?.tick ?? null);
+      return;
+    }
     sync();
   };
   const onPointerLeave = () => {
     hovered = null;
+    if (followingSelected && resolveSelectedRow() === lastSelectedRow) {
+      hoverCapsule.moveTo(null);
+      hoverTick.moveTo(null);
+      return;
+    }
     sync();
   };
   const onClick = (event: MouseEvent) => {
@@ -268,9 +368,13 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   list.addEventListener("pointermove", onPointerMove, { passive: true });
   list.addEventListener("pointerleave", onPointerLeave);
 
+  const isWeftInternal = (node: Node) =>
+    node === layer ||
+    layer.contains(node) ||
+    (node instanceof Element && node.closest("[data-weft-layer], [data-weft-curtain]") !== null);
+
   const mutations = new MutationObserver((records) => {
-    if (records.every((record) => record.target === layer || layer.contains(record.target)))
-      return;
+    if (records.every((record) => isWeftInternal(record.target))) return;
     if (hovered !== null && !hovered.isConnected) hovered = null;
     syncSoon();
   });
@@ -285,6 +389,7 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   sync();
 
   return {
+    followShift,
     dispose() {
       clearTimeout(settleTimer);
       clearTimeout(pendingTimer);
@@ -299,3 +404,5 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     },
   };
 }
+
+export type WeftSidebarIndicators = ReturnType<typeof createWeftSidebarIndicators>;

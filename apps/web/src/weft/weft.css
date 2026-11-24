@@ -9,6 +9,20 @@
   isolation: isolate;
 }
 
+/* Custom themes whose signature color lives outside --app-theme-accent. */
+html[data-theme-id="dune-garden"] [data-weft-motion] {
+  --weft-tick-color: #5d7a4a;
+}
+html.dark[data-theme-id="dune-garden"] [data-weft-motion] {
+  --weft-tick-color: #a8c48e;
+}
+html[data-theme-id="dune-plotter-tide"] [data-weft-motion] {
+  --weft-tick-color: #5b6b8c;
+}
+html.dark[data-theme-id="dune-plotter-tide"] [data-weft-motion] {
+  --weft-tick-color: #aab6d0;
+}
+
 [data-weft-layer] {
   position: absolute;
   inset: 0 auto auto 0;
@@ -68,9 +82,35 @@
   translate: 2px 0;
 }
 
+/* Keep folder headers above temporary collapse curtains and harmonize chevron rotation. */
+[data-weft-motion] > [data-testid="sidebar-project-folder"] {
+  position: relative;
+  z-index: 2;
+}
+[data-weft-motion] > [data-testid="sidebar-project-folder"] svg.lucide-chevron-down {
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Subtle accent ink flash along the 1px guide when a new thread enters an open folder. */
+[data-weft-motion] [data-sidebar-row][data-weft-fresh="true"]::before {
+  animation: weft-guide-ink 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes weft-guide-ink {
+  0% {
+    background: var(--weft-tick-color);
+  }
+  100% {
+    background: color-mix(in srgb, var(--sidebar-foreground) 9%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-weft-motion] [data-sidebar-row] > div:first-child {
     transition: none;
     translate: none;
+  }
+  [data-weft-motion] [data-sidebar-row][data-weft-fresh="true"]::before {
+    animation: none;
   }
 }
