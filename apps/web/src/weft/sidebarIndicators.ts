@@ -6,64 +6,57 @@ const SELECTED = `${ROW}[aria-current]:not([aria-current="false"])`;
 const TICK_LENGTH = 18;
 const CAPSULE_GAP = 2;
 const STIFF = 900;
-const STRETCH = 2.8;
 const DAMPING = 0.72;
 // Long jumps would otherwise stretch a piece across every row between; the tail is dragged instead.
-const MAX_STRETCH = 22;
+const TICK_MAX_STRETCH = 22;
+const CAPSULE_MAX_STRETCH = 12;
 
 type Span = { top: number; bottom: number; left: number; width: number };
 
-// Two springs per element: the leading edge is stiff and the trailing edge soft, so a
-// moving piece stretches toward its target and then recovers. It only runs while moving.
-function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undefined) {
-  const state = { top: 0, bottom: 0, vTop: 0, vBottom: 0, target: null as Span | null };
+// One spring moves the piece; its tail trails by a stretch that grows with speed and saturates
+// at maxStretch, so a move leads with the head, stretches, then recovers. Length follows
+// velocity, which is continuous, so it never jumps; a fixed timestep keeps dropped frames
+// smooth. Only transform changes per frame (no layout), and it idles when at rest.
+const STEP = 1 / 240;
+const STRETCH_PER_SPEED = 0.03;
+// Stretch eases in and out over ~40ms so a sudden start or reversal never snaps the length.
+const STRETCH_SMOOTHING = 1 - Math.exp(-STEP / 0.04);
+
+function createMover(
+  element: HTMLElement,
+  reducedMotion: MediaQueryList | undefined,
+  maxStretch: number,
+) {
+  let target: Span | null = null;
+  let center = 0;
+  let velocity = 0;
+  let stretch = 0;
   let frame = 0;
   let last = 0;
+  let pending = 0;
   let visible = false;
 
   const paint = () => {
-    const target = state.target!;
-    element.style.transform = `translate(${target.left}px, ${state.top}px)`;
-    element.style.width = `${target.width}px`;
-    element.style.height = `${Math.max(2, state.bottom - state.top)}px`;
-  };
-  const spring = (x: number, v: number, to: number, k: number, dt: number) => {
-    const next = v + (k * (to - x) - 2 * DAMPING * Math.sqrt(k) * v) * dt;
-    return [x + next * dt, next] as const;
+    const length = target!.bottom - target!.top;
+    const top = center - length / 2 - Math.max(0, stretch);
+    const scale = (length + Math.abs(stretch)) / length;
+    element.style.transform = `translate(${target!.left}px, ${top}px) scaleY(${scale})`;
   };
   const step = (now: number) => {
-    const target = state.target!;
-    const dt = Math.min(0.032, (now - last) / 1000);
+    const goal = (target!.top + target!.bottom) / 2;
+    pending += Math.min(0.05, (now - last) / 1000);
     last = now;
-    const down = target.bottom > state.bottom || target.top > state.top;
-    const soft = STIFF / (STRETCH * STRETCH);
-    [state.top, state.vTop] = spring(state.top, state.vTop, target.top, down ? soft : STIFF, dt);
-    [state.bottom, state.vBottom] = spring(
-      state.bottom,
-      state.vBottom,
-      target.bottom,
-      down ? STIFF : soft,
-      dt,
-    );
-    const maxLength = target.bottom - target.top + MAX_STRETCH;
-    if (state.bottom - state.top > maxLength) {
-      if (down) {
-        state.top = state.bottom - maxLength;
-        state.vTop = state.vBottom;
-      } else {
-        state.bottom = state.top + maxLength;
-        state.vBottom = state.vTop;
-      }
+    while (pending >= STEP) {
+      velocity += (STIFF * (goal - center) - 2 * DAMPING * Math.sqrt(STIFF) * velocity) * STEP;
+      center += velocity * STEP;
+      const desired = maxStretch * Math.tanh((velocity * STRETCH_PER_SPEED) / maxStretch);
+      stretch += (desired - stretch) * STRETCH_SMOOTHING;
+      pending -= STEP;
     }
-    const settled =
-      Math.abs(target.top - state.top) +
-        Math.abs(target.bottom - state.bottom) +
-        Math.abs(state.vTop) +
-        Math.abs(state.vBottom) <
-      0.2;
-    if (settled) {
-      state.top = target.top;
-      state.bottom = target.bottom;
+    if (Math.abs(goal - center) + Math.abs(velocity) * STEP + Math.abs(stretch) < 0.05) {
+      center = goal;
+      velocity = 0;
+      stretch = 0;
       frame = 0;
     } else {
       frame = requestAnimationFrame(step);
@@ -72,19 +65,23 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
   };
 
   return {
-    moveTo(target: Span | null) {
-      if (target === null) {
+    moveTo(next: Span | null) {
+      if (next === null) {
         if (visible) element.style.opacity = "0";
         visible = false;
         return;
       }
-      state.target = target;
+      if (target === null || next.bottom - next.top !== target.bottom - target.top) {
+        element.style.height = `${next.bottom - next.top}px`;
+      }
+      element.style.width = `${next.width}px`;
+      target = next;
       if (!visible || reducedMotion?.matches) {
         cancelAnimationFrame(frame);
         frame = 0;
-        state.top = target.top;
-        state.bottom = target.bottom;
-        state.vTop = state.vBottom = 0;
+        center = (next.top + next.bottom) / 2;
+        velocity = 0;
+        stretch = 0;
         paint();
         element.style.opacity = "1";
         visible = true;
@@ -92,23 +89,11 @@ function createMover(element: HTMLElement, reducedMotion: MediaQueryList | undef
       }
       if (frame === 0) {
         last = performance.now();
+        pending = 0;
         frame = requestAnimationFrame(step);
       }
+      paint();
     },
-    // Take over another piece's position so a click deepens the hover mark in place.
-    adopt(other: { snapshot: () => typeof state | null }) {
-      const from = other.snapshot();
-      if (from === null) return;
-      Object.assign(state, from, { target: state.target ?? from.target });
-      visible = true;
-      element.style.opacity = "1";
-      if (frame === 0 && state.target !== null) {
-        paint();
-        last = performance.now();
-        frame = requestAnimationFrame(step);
-      }
-    },
-    snapshot: () => (visible ? { ...state } : null),
     dispose() {
       cancelAnimationFrame(frame);
     },
@@ -124,20 +109,19 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
   layer.dataset.weftLayer = "";
   layer.setAttribute("aria-hidden", "true");
   layer.inert = true;
-  const make = (slot: string) => {
+  const make = (slot: string, maxStretch: number) => {
     const element = doc.createElement("div");
     element.dataset.weftIndicator = slot;
     layer.append(element);
-    return createMover(element, reducedMotion);
+    return createMover(element, reducedMotion, maxStretch);
   };
-  const hoverCapsule = make("hover-capsule");
-  const selectedCapsule = make("selected-capsule");
-  const hoverTick = make("hover-tick");
-  const selectedTick = make("selected-tick");
+  const hoverCapsule = make("hover-capsule", CAPSULE_MAX_STRETCH);
+  const selectedCapsule = make("selected-capsule", CAPSULE_MAX_STRETCH);
+  const hoverTick = make("hover-tick", TICK_MAX_STRETCH);
+  const selectedTick = make("selected-tick", TICK_MAX_STRETCH);
   list.append(layer);
 
   let hovered: HTMLElement | null = null;
-  let lastSelected: HTMLElement | null = null;
 
   const measure = (row: HTMLElement | null) => {
     if (row === null || !row.isConnected) return null;
@@ -171,11 +155,6 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     const selectedRow = list.querySelector<HTMLElement>(SELECTED);
     const selected = measure(selectedRow);
     const hover = hovered === selectedRow ? null : measure(hovered);
-    if (selectedRow !== lastSelected && selectedRow !== null && selectedRow === hovered) {
-      selectedCapsule.adopt(hoverCapsule);
-      selectedTick.adopt(hoverTick);
-    }
-    lastSelected = selectedRow;
     selectedCapsule.moveTo(selected?.capsule ?? null);
     selectedTick.moveTo(selected?.tick ?? null);
     hoverCapsule.moveTo(hover?.capsule ?? null);
