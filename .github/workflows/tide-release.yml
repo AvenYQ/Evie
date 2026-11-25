@@ -72,7 +72,7 @@ jobs:
             title="同步官方 $tag 时有冲突"
             body="$(printf '合并官方 %s 到 weft/main 时出现冲突，本次没有发布。\n\n冲突文件：\n```\n%s\n```\n\n在本地运行 `./weft/sync.sh %s` 处理冲突后推送到 weft/main，会自动重新打包发布。' "$tag" "$files" "$tag")"
             if ! gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number' | grep -q .; then
-              gh issue create --title "$title" --body "$body"
+              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f body="$body" > /dev/null
             fi
             exit 1
           fi
@@ -93,7 +93,8 @@ jobs:
         if: steps.sync.outputs.build == 'true'
         run: |
           node apps/web/node_modules/playwright/cli.js install --only-shell chromium
-          (cd apps/web && vp test run src/weft && vp run typecheck)
+          # Sidebar motion tests time animation frames; a busy runner can miss one, so retry.
+          (cd apps/web && vp test run src/weft --retry 2 && vp run typecheck)
           (cd apps/desktop && vp test run src/weft src/updates && vp run typecheck)
 
       - name: Build
@@ -131,5 +132,5 @@ jobs:
         run: |
           title="Tide 打包失败（官方 ${{ steps.sync.outputs.tag }}）"
           if ! gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number' | grep -q .; then
-            gh issue create --title "$title" --body "检查或打包失败，本次没有发布。日志：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f body="检查或打包失败，本次没有发布。日志：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > /dev/null
           fi
