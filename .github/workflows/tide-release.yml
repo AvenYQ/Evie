@@ -92,6 +92,7 @@ jobs:
       - name: Check Tide
         if: steps.sync.outputs.build == 'true'
         run: |
+          node apps/web/node_modules/playwright/cli.js install --only-shell chromium
           (cd apps/web && vp test run src/weft && vp run typecheck)
           (cd apps/desktop && vp test run src/weft src/updates && vp run typecheck)
 
