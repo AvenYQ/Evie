@@ -11,12 +11,30 @@ import sidebarProjectFolderHeaderSrc from "../components/sidebar/SidebarProjectF
 import sidebarThreadRowSrc from "../components/sidebar/SidebarThreadRow.tsx?raw";
 import threadDetailsCardSrc from "../components/chat/ThreadDetailsCard.tsx?raw";
 import usageLimitRecoveryBannerSrc from "../components/chat/UsageLimitRecoveryBanner.tsx?raw";
+import bootErrorSrc from "../lib/bootError.ts?raw";
+import indexHtmlSrc from "../../index.html?raw";
+import mainSrc from "../main.tsx?raw";
 
 const CONTRACTS: ReadonlyArray<{
   readonly file: string;
   readonly source: string;
   readonly tokens: ReadonlyArray<string>;
 }> = [
+  {
+    file: "index.html",
+    source: indexHtmlSrc,
+    tokens: ['id="root"', 'id="boot-shell"', 'id="boot-shell-logo" src="/weft-boot-mark.svg"'],
+  },
+  {
+    file: "lib/bootError.ts",
+    source: bootErrorSrc,
+    tokens: ['getElementById("boot-shell")', 'id: "boot-error"'],
+  },
+  {
+    file: "main.tsx",
+    source: mainSrc,
+    tokens: ['import "./weft"', 'getElementById("root")'],
+  },
   {
     file: "components/AppSidebarLayout.tsx",
     source: appSidebarLayoutSrc,

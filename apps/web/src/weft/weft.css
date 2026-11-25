@@ -19,6 +19,21 @@
 
 /* Theme skins may declare --weft-tick-color to override the default accent color. */
 
+/* Startup scene (bootScene.ts): above toasts (z 9999), never catches a click. */
+[data-weft-boot] {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+  will-change: opacity;
+}
+[data-weft-boot-mark] {
+  position: absolute;
+}
+[data-weft-boot-wave] {
+  will-change: transform;
+}
+
 /* Dialog & Sheet motion unified onto Weft's drawer easing without editing official UI files. */
 [data-slot="dialog-popup"],
 [data-slot="alert-dialog-popup"],
