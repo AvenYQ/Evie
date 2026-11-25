@@ -71,6 +71,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ComponentProps,
 } from "react";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { flushSync } from "react-dom";
@@ -227,6 +228,7 @@ import {
 import { CollapsedComposerStopAction, ComposerPrimaryActions } from "./ComposerPrimaryActions";
 import { ComposerFooterPrimaryActions } from "./ComposerFooterControls";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
+import { ComposerApprovalCard } from "~/weft/ComposerApprovalCard";
 import { resolveComposerMenuActiveItemId } from "./composerMenuHighlight";
 import { buildPullRequestReferenceContext } from "../pullRequest/pullRequestDetail.logic";
 import { getComposerPromptInjectionState, getComposerReasoningStep } from "./composerProviderState";
@@ -421,6 +423,7 @@ export interface ChatComposerProps {
   pendingUserInputs: PendingUserInput[];
   activePendingIsResponding: boolean;
   respondingRequestIds: RuntimeRequestId[];
+  onRespondToApproval?: ComponentProps<typeof ComposerApprovalCard>["onRespondToApproval"];
 
   runtimeMode: RuntimeMode;
   defaultRuntimeMode?: RuntimeMode;
@@ -558,6 +561,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     pendingUserInputs: incomingPendingUserInputs,
     activePendingIsResponding: incomingPendingIsResponding,
     respondingRequestIds,
+    onRespondToApproval,
     runtimeMode,
     lockedProvider,
     providerStatuses,
@@ -1274,6 +1278,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const isChoiceOnlyPendingQuestion =
     activePendingProgress?.activeQuestion?.allowCustomAnswer === false;
   const showComposerTopDrawer = pendingUserInputs.length > 0;
+  const weftApprovalCard =
+    !showComposerTopDrawer && activePendingApproval !== null && onRespondToApproval
+      ? activePendingApproval
+      : null;
   const showCollapsedMobilePromptRow = isComposerCollapsedMobile;
   const showComposerAttachAction =
     fileStagingLimit !== null &&
@@ -2647,7 +2655,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     importContextRecords,
     expandMobileComposer: expandMobileComposerStable,
   });
-  const hasBlockingComposerTopDrawer = pendingUserInputs.length > 0;
+  const hasBlockingComposerTopDrawer = pendingUserInputs.length > 0 || weftApprovalCard !== null;
   const composerControlsCollapsed = isComposerCollapsedMobile;
   // The collapsed mobile web composer keeps a second controls row inside the card.
   const showInlineRestingControls = isComposerCollapsedMobile;
@@ -3692,6 +3700,20 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       <ComposerBanner.Dock>
         <ComposerBanner.Column>
           <ComposerBannerStack items={shelfItems} />
+          {weftApprovalCard && onRespondToApproval ? (
+            <ComposerApprovalCard
+              key={weftApprovalCard.requestId}
+              approval={weftApprovalCard}
+              remainingCount={
+                pendingApprovals.filter((approval) => !heldRequestIds.has(approval.requestId))
+                  .length - 1
+              }
+              isResponding={respondingRequestIds.includes(weftApprovalCard.requestId)}
+              disabled={!canOperateThread}
+              onRespondToApproval={onRespondToApproval}
+              onDeclineWithFeedback={focusComposer}
+            />
+          ) : null}
           {showComposerTopDrawer ? (
             <ComposerBanner.Attachment>
               <ComposerBanner.Root data-chat-composer-top-drawer="true" variant="info">

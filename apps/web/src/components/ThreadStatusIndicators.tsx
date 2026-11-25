@@ -808,6 +808,7 @@ function ThreadStatusLabel({
           <span
             role="img"
             aria-label={label}
+            data-weft-status={status.weft}
             className={`inline-flex items-center gap-1 text-3xs ${status.colorClass}`}
           />
         }

@@ -647,6 +647,8 @@ export interface ThreadStatusPill {
   colorClass: string;
   dotClass: string;
   pulse: boolean;
+  /** Weft: lets weft.css turn this status into a badge. */
+  weft?: "approval";
 }
 
 type ThreadStatusInput = Pick<
@@ -1241,6 +1243,7 @@ export function resolveThreadStatusPill(input: {
       colorClass: "text-amber-600 dark:text-amber-300/90",
       dotClass: "bg-amber-500 dark:bg-amber-300/90",
       pulse: false,
+      weft: "approval",
     };
   }
 

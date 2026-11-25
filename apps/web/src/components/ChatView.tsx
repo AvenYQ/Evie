@@ -3929,6 +3929,7 @@ export default function ChatView(props: ChatViewProps) {
                                 pendingUserInputs={pendingUserInputs}
                                 activePendingIsResponding={activePendingIsResponding}
                                 respondingRequestIds={respondingRequestIds}
+                                onRespondToApproval={onRespondToApprovalStable}
                                 runtimeMode={runtimeMode}
                                 defaultRuntimeMode={defaultRuntimeMode}
                                 lockedProvider={modelPickerLockedProvider}
