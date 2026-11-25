@@ -2767,7 +2767,9 @@ export function resolveDesktopWebAssetBrand(version: string): WebAssetBrand {
 }
 
 export function resolveDesktopBuildIconAssets(version: string): DesktopBuildIconAssets {
-  if (resolveDesktopUpdateChannel(version) === "nightly") {
+  // Weft: Tide keeps its own icon on every channel, nightly included.
+  const weftMacIconPng = process.env.WEFT_MAC_ICON_PNG?.trim();
+  if (resolveDesktopUpdateChannel(version) === "nightly" && !weftMacIconPng) {
     return {
       macIconPng: BRAND_ASSET_PATHS.nightlyMacIconPng,
       linuxIconPng: BRAND_ASSET_PATHS.nightlyLinuxIconPng,
@@ -2777,7 +2779,7 @@ export function resolveDesktopBuildIconAssets(version: string): DesktopBuildIcon
 
   return {
     // Weft: the personal build carries its own icon (set by weft/build.sh).
-    macIconPng: process.env.WEFT_MAC_ICON_PNG?.trim() || BRAND_ASSET_PATHS.productionMacIconPng,
+    macIconPng: weftMacIconPng || BRAND_ASSET_PATHS.productionMacIconPng,
     linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
     windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
   };

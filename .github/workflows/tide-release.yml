@@ -1,0 +1,134 @@
+name: Tide sync and release
+
+# Keeps Tide (branch weft/main) on top of official T3 Code Nightly: once a day it merges the
+# newest official nightly tag, runs Tide's tests, builds the macOS app (Apple silicon) and
+# publishes it as a release here. The installed Tide checks these releases and offers the
+# update in its sidebar. A merge that conflicts or a failing check opens an issue instead and
+# publishes nothing. A push to weft/main is built and released without merging upstream.
+#
+# Pushes made with GITHUB_TOKEN start no other workflow, so the release commit never loops.
+
+on:
+  push:
+    branches: [weft/main]
+    paths-ignore: ["**/*.md", "weft/themes/**"]
+  schedule:
+    - cron: "40 20 * * *" # 04:40 in Asia/Taipei
+  workflow_dispatch:
+    inputs:
+      build_only:
+        description: Build and release the current weft/main without merging upstream
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: tide-release
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: https://github.com/pingdotgg/t3code.git
+  BRANCH: weft/main
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+
+      - name: Merge the newest official nightly
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_ONLY: ${{ github.event_name == 'push' || inputs.build_only == true }}
+        run: |
+          git config user.name "tide-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM"
+          git fetch --no-tags upstream main
+          git fetch --no-tags upstream 'refs/tags/v*-nightly.*:refs/tags/v*-nightly.*'
+          tag="$(git tag -l 'v*-nightly.*' --sort=-v:refname | head -1)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "$BUILD_ONLY" == "true" ]]; then
+            echo "Building weft/main as it is (official base $(git describe --tags --abbrev=0 --match 'v*-nightly.*' 2>/dev/null || echo unknown))."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git merge-base --is-ancestor "$tag" HEAD; then
+            echo "Tide already contains $tag; nothing to release."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge --no-edit -m "Merge official $tag into Tide" "$tag"; then
+            files="$(git diff --name-only --diff-filter=U)"
+            git merge --abort
+            title="同步官方 $tag 时有冲突"
+            body="$(printf '合并官方 %s 到 weft/main 时出现冲突，本次没有发布。\n\n冲突文件：\n```\n%s\n```\n\n在本地运行 `./weft/sync.sh %s` 处理冲突后推送到 weft/main，会自动重新打包发布。' "$tag" "$files" "$tag")"
+            if ! gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number' | grep -q .; then
+              gh issue create --title "$title" --body "$body"
+            fi
+            exit 1
+          fi
+          echo "build=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup dependencies
+        if: steps.sync.outputs.build == 'true'
+        uses: ./.github/actions/setup-ci-deps
+
+      - name: Setup Rust
+        if: steps.sync.outputs.build == 'true'
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin
+
+      - name: Check Tide
+        if: steps.sync.outputs.build == 'true'
+        run: |
+          (cd apps/web && vp test run src/weft && vp run typecheck)
+          (cd apps/desktop && vp test run src/weft src/updates && vp run typecheck)
+
+      - name: Build
+        if: steps.sync.outputs.build == 'true'
+        id: build
+        run: |
+          tag="${{ steps.sync.outputs.tag }}"
+          core="${tag#v}"; core="${core%%-*}"
+          version="${core}-nightly.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          WEFT_PRODUCT_NAME="Tide" WEFT_MAC_ICON_PNG="weft/assets/tide-macos-1024.png" \
+            node scripts/build-desktop-artifact.ts --platform mac --target zip --arch arm64 \
+            --build-version "$version" --output-dir release-tide
+          ls -la release-tide
+          # electron-builder writes the nightly feed; the stable track reads the same build.
+          cp release-tide/nightly-mac.yml release-tide/latest-mac.yml
+
+      - name: Publish
+        if: steps.sync.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ steps.build.outputs.version }}"
+          tag="${{ steps.sync.outputs.tag }}"
+          git push origin "HEAD:$BRANCH"
+          notes="$(printf '基于官方 T3 Code %s。\n\nTide 提交：%s' "$tag" "$(git rev-parse --short HEAD)")"
+          gh release create "v$version" --target "$(git rev-parse HEAD)" \
+            --title "Tide $version" --notes "$notes" \
+            release-tide/*.zip release-tide/*.blockmap release-tide/*-mac.yml
+
+      - name: Report a failed check or build
+        if: failure() && steps.sync.outputs.build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Tide 打包失败（官方 ${{ steps.sync.outputs.tag }}）"
+          if ! gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number' | grep -q .; then
+            gh issue create --title "$title" --body "检查或打包失败，本次没有发布。日志：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

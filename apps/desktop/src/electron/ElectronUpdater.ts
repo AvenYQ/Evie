@@ -4,7 +4,10 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 
+import * as Electron from "electron";
 import { AppImageUpdater, autoUpdater } from "electron-updater";
+
+import { downloadMacUpdate, installMacUpdate, isWeftMacSelfUpdate } from "../weft/macSelfUpdate.ts";
 
 type AutoUpdater = typeof autoUpdater;
 type SpawnLog = (cmd: string, args?: Array<string>, ...rest: Array<unknown>) => Promise<boolean>;
@@ -163,7 +166,11 @@ export const make = ElectronUpdater.of({
   downloadUpdate: Effect.suspend(() => {
     const channel = autoUpdater.channel;
     return Effect.tryPromise({
-      try: () => autoUpdater.downloadUpdate(),
+      // Weft: Tide installs its own macOS updates (see weft/macSelfUpdate.ts).
+      try: async () => {
+        if (isWeftMacSelfUpdate) await downloadMacUpdate(autoUpdater);
+        else await autoUpdater.downloadUpdate();
+      },
       catch: (cause) => new ElectronUpdaterDownloadUpdateError({ channel, cause }),
     }).pipe(Effect.asVoid);
   }),
@@ -174,6 +181,13 @@ export const make = ElectronUpdater.of({
     return Effect.suspend(() => {
       const channel = autoUpdater.channel;
       if (autoUpdater instanceof AppImageUpdater) relaunchWithoutInheritedDescriptors(autoUpdater);
+      if (isWeftMacSelfUpdate) {
+        return Effect.tryPromise({
+          try: () => installMacUpdate(isForceRunAfter, () => Electron.app.quit()),
+          catch: (cause) =>
+            new ElectronUpdaterQuitAndInstallError({ channel, isSilent, isForceRunAfter, cause }),
+        });
+      }
       return Effect.try({
         try: () => autoUpdater.quitAndInstall(isSilent, isForceRunAfter),
         catch: (cause) =>
