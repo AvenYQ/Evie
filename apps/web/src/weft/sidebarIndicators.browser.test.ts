@@ -180,41 +180,45 @@ describe("createWeftSidebarIndicators", () => {
     expect(indicator("hover-tick").style.opacity).toBe("1");
   });
 
-  it("fades out and fades in without stretching when moving across different project folders", async () => {
-    using harness = mount(6);
-    const { list, rows, indicator } = harness;
-    // Split into two separate project folders (rows 0-2 in folder A, rows 3-5 in folder B).
-    for (let index = 0; index < 3; index++) rows[index]!.dataset.sidebarParent = "folder:a";
-    for (let index = 3; index < 6; index++) rows[index]!.dataset.sidebarParent = "folder:b";
+  // The cross-fade is skipped under reduced motion, which CI's macOS runners report.
+  it.skipIf(matchMedia("(prefers-reduced-motion: reduce)").matches)(
+    "fades out and fades in without stretching when moving across different project folders",
+    async () => {
+      using harness = mount(6);
+      const { list, rows, indicator } = harness;
+      // Split into two separate project folders (rows 0-2 in folder A, rows 3-5 in folder B).
+      for (let index = 0; index < 3; index++) rows[index]!.dataset.sidebarParent = "folder:a";
+      for (let index = 3; index < 6; index++) rows[index]!.dataset.sidebarParent = "folder:b";
 
-    rows[0]!.setAttribute("aria-current", "page");
-    const tick = indicator("selected-tick");
-    await vi.waitFor(() => {
-      expect(tick.style.opacity).toBe("1");
-    });
+      rows[0]!.setAttribute("aria-current", "page");
+      const tick = indicator("selected-tick");
+      await vi.waitFor(() => {
+        expect(tick.style.opacity).toBe("1");
+      });
 
-    // Click row 5 in folder B -> should cross-fade instead of stretching across the gap.
-    rows[5]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const ghosts = list.querySelectorAll<HTMLElement>("[data-weft-ghost]");
-    expect(ghosts.length).toBeGreaterThanOrEqual(1);
+      // Click row 5 in folder B -> should cross-fade instead of stretching across the gap.
+      rows[5]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      const ghosts = list.querySelectorAll<HTMLElement>("[data-weft-ghost]");
+      expect(ghosts.length).toBeGreaterThanOrEqual(1);
 
-    const anim = waapiAnimations(tick)[0]!;
-    anim.pause();
-    anim.currentTime = 40;
-    // Length stays at 18px (no rubber-band stretch across folders).
-    expect(shown(tick).length).toBeCloseTo(18, 0);
-    // Position is already near row 5 (200 + 11 = 211), not mid-flight near row 2.
-    expect(shown(tick).top).toBeGreaterThan(200);
+      const anim = waapiAnimations(tick)[0]!;
+      anim.pause();
+      anim.currentTime = 40;
+      // Length stays at 18px (no rubber-band stretch across folders).
+      expect(shown(tick).length).toBeCloseTo(18, 0);
+      // Position is already near row 5 (200 + 11 = 211), not mid-flight near row 2.
+      expect(shown(tick).top).toBeGreaterThan(200);
 
-    // Finish animations -> ghosts clean up cleanly.
-    anim.finish();
-    for (const ghost of ghosts) {
-      for (const ghostAnim of ghost.getAnimations()) ghostAnim.finish();
-    }
-    await vi.waitFor(() => {
-      expect(list.querySelectorAll("[data-weft-ghost]")).toHaveLength(0);
-    });
-  });
+      // Finish animations -> ghosts clean up cleanly.
+      anim.finish();
+      for (const ghost of ghosts) {
+        for (const ghostAnim of ghost.getAnimations()) ghostAnim.finish();
+      }
+      await vi.waitFor(() => {
+        expect(list.querySelectorAll("[data-weft-ghost]")).toHaveLength(0);
+      });
+    },
+  );
 
   it("uses translucent capsules so glass sidebar backgrounds show through", () => {
     using harness = mount(2);
