@@ -9,6 +9,7 @@ import { Link } from "@tanstack/react-router";
 import { useGT, useMessages } from "gt-react";
 import { ArrowUpRightIcon, ChevronDownIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { useWeftMessages, type WeftMessages } from "./i18n";
 import {
   resolveAllAgentUsageCards,
   type WeftAgentUsageCard,
@@ -28,7 +29,7 @@ function buildSubtitle(
   card: WeftAgentUsageCard,
   modelName: string | null,
   messages: ReturnType<typeof useMessages>,
-  gt: ReturnType<typeof useGT>,
+  weftMessages: WeftMessages,
 ): string {
   if (card.unavailableNotice !== null) return card.unavailableNotice;
   // Names the window behind the big number on the right, and when it resets. The current
@@ -39,7 +40,7 @@ function buildSubtitle(
   if (card.isCurrent && modelName) return parts.join(" · ");
   const reset = formatShortReset(card.primary, messages);
   if (reset) {
-    parts.push(gt("Resets in {duration}", { duration: reset }));
+    parts.push(weftMessages.resetsIn(reset));
   }
   return parts.join(" · ");
 }
@@ -84,6 +85,7 @@ export function WeftUsageLimitsSection({
   sources = [],
 }: Omit<ThreadDetailsUsageInput, "contextWindow">) {
   const gt = useGT();
+  const weftMessages = useWeftMessages();
   const messages = useMessages();
   const nowMinute = useNowMinute();
   const now = Date.parse(`${nowMinute}:00Z`);
@@ -205,7 +207,7 @@ export function WeftUsageLimitsSection({
                       {card.isCurrent ? (
                         <span data-weft-lg="current-badge">
                           <span data-weft-lg="now-dot" aria-hidden />
-                          <span>{gt("Current", { $context: "the agent this thread uses" })}</span>
+                          <span>{weftMessages.current}</span>
                         </span>
                       ) : null}
                     </div>
@@ -213,7 +215,7 @@ export function WeftUsageLimitsSection({
                       data-weft-lg="sub"
                       data-wrap={card.unavailableNotice !== null ? "true" : undefined}
                     >
-                      {buildSubtitle(card, modelName, messages, gt)}
+                      {buildSubtitle(card, modelName, messages, weftMessages)}
                     </div>
                   </div>
                   {primary !== null ? (
@@ -288,7 +290,7 @@ export function WeftUsageLimitsSection({
                           const reset = formatShortReset(window, messages);
                           const details = [
                             window.label,
-                            reset ? gt("Resets in {duration}", { duration: reset }) : null,
+                            reset ? weftMessages.resetsIn(reset) : null,
                             window.accountsCount > 1
                               ? gt(
                                   "{count, plural, one {{count} account} other {{count} accounts}}",

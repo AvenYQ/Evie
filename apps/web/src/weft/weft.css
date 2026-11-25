@@ -12,18 +12,14 @@
   --weft-dur-layout: 250ms;
 }
 
-/* Custom themes whose signature color lives outside --app-theme-accent. */
-html[data-theme-id="dune-garden"] {
-  --weft-tick-color: #5d7a4a;
-}
-html.dark[data-theme-id="dune-garden"] {
-  --weft-tick-color: #a8c48e;
-}
-html[data-theme-id="dune-plotter-tide"] {
-  --weft-tick-color: #5b6b8c;
-}
-html.dark[data-theme-id="dune-plotter-tide"] {
-  --weft-tick-color: #aab6d0;
+/* Theme skins may declare --weft-tick-color to override the default accent color. */
+
+/* Dialog & Sheet motion unified onto Weft's drawer easing without editing official UI files. */
+[data-slot="dialog-popup"],
+[data-slot="alert-dialog-popup"],
+[data-slot="command-dialog-popup"],
+[data-slot="sheet-popup"] {
+  transition-timing-function: var(--weft-ease-drawer);
 }
 
 [data-weft-motion] {
@@ -661,7 +657,94 @@ html.dark [data-weft-usage] {
   height: 6px;
 }
 
+/* ===== Weft Composer: Quota Recovery Status Bar ===== */
+
+/* Scoped to the single attached gauge warning banner so multi-banner stacks stay stock. */
+html
+  [data-chat-composer-form]:has(
+    [data-composer-banner-stack]:only-child
+      > [data-composer-banner-surface="attached"][data-variant="warning"]
+      .lucide-gauge
+  ) {
+  --quota-surface: var(--app-theme-surface-raised, var(--card));
+  --quota-line: color-mix(in srgb, var(--foreground) 20%, transparent);
+  border: 1px solid var(--quota-line) !important;
+  border-radius: 16px !important;
+  background: var(--quota-surface) !important;
+  box-shadow: none !important;
+
+  & > [data-slot="composer-banner-attachment"],
+  & [data-composer-banner-stack] {
+    width: 100% !important;
+    margin-bottom: 0 !important;
+  }
+  & [data-slot="composer-banner"]:has(.lucide-gauge) {
+    --chat-composer-attachment-overlap: 0px !important;
+    padding: 5px 10px !important;
+    border-radius: 15px 15px 0 0;
+    border-bottom: 1px solid var(--quota-line);
+    background: color-mix(in srgb, var(--foreground) 4%, var(--quota-surface));
+  }
+  & [data-slot="composer-banner"]:has(.lucide-gauge)::before,
+  & [data-chat-composer-main-surface]::after {
+    display: none !important;
+  }
+  & [data-chat-composer-main-surface] {
+    background: transparent !important;
+    border-radius: 0 0 15px 15px !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+  & [data-composer-banner-row] {
+    gap: 4px 8px;
+  }
+  & [data-slot="composer-banner-icon"] {
+    color: var(--warning);
+  }
+  & [data-slot="composer-banner-content"] {
+    flex-wrap: wrap;
+    max-width: none !important;
+    flex: 1 1 max-content;
+    white-space: normal;
+    color: var(--muted-foreground);
+  }
+  & [data-slot="composer-banner-content"] > span > span {
+    position: static !important;
+    height: auto !important;
+    width: auto !important;
+    margin: 0 !important;
+    clip: auto !important;
+    clip-path: none !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+  & [data-slot="composer-banner-content"] > span:nth-child(2) > span {
+    color: var(--foreground);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  & [data-slot="composer-banner-actions"] {
+    margin-inline-start: auto;
+  }
+  & [data-slot="composer-banner-actions"] > span > button:last-of-type {
+    border: 1px solid var(--quota-line);
+    border-radius: 6px !important;
+    padding-inline: 7px;
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    color: var(--foreground);
+  }
+  & [data-slot="composer-banner-actions"] > span > button:last-of-type:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--foreground) 10%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-popup"],
+  [data-slot="alert-dialog-popup"],
+  [data-slot="command-dialog-popup"],
+  [data-slot="sheet-popup"] {
+    transition-property: opacity;
+  }
   [data-weft-motion] [data-sidebar-row] > div:first-child {
     transition: none;
     translate: none;

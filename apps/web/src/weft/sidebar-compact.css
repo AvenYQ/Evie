@@ -1,0 +1,177 @@
+/* Weft: universal sidebar compact project layout & multi-device badges.
+   Lives once in Weft source instead of being duplicated across every custom theme. */
+
+/* In Keep separate mode, a project row key is folder:<environment-id>:<path>. */
+button[data-sidebar-row^="folder:38a6fd7f-6d91-42f2-a929-1a30e5b5e910:"] {
+  --project-device: "Mac mini";
+  --project-device-color: #ba8157;
+}
+
+button[data-sidebar-row^="folder:7979276e-4603-4c75-afd4-0404256cb45f:"] {
+  --project-device: "MacBook";
+  --project-device-color: #8198db;
+}
+
+button[data-sidebar-row^="folder:"]:is(
+    [data-sidebar-row*=":/"],
+    [data-sidebar-row*=":\\"]
+  ) {
+  &::after {
+    content: var(--project-device, "其他设备");
+    order: 1;
+    flex: none;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: color-mix(
+      in srgb,
+      var(--project-device-color, var(--sidebar-muted-foreground)) 23%,
+      var(--sidebar)
+    );
+    color: color-mix(
+      in srgb,
+      var(--project-device-color, var(--sidebar-muted-foreground)) 32%,
+      var(--sidebar-foreground)
+    );
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  & > .tabular-nums {
+    order: 2;
+  }
+  & > :last-child {
+    order: 3;
+  }
+  &:not(:has(> .tabular-nums))::after {
+    margin-inline-end: 14px;
+  }
+}
+
+/* Compact project view. Other sidebar modes use their native layout. */
+[data-app-sidebar] [data-testid="sidebar-project-folder"] {
+  margin-block-start: 8px;
+}
+
+[data-app-sidebar] [data-testid="sidebar-project-folder"] > button {
+  --project-header-gap: 10px;
+  --project-count-width: 18px;
+  min-height: 39px;
+  column-gap: var(--project-header-gap);
+
+  & > .tabular-nums {
+    inline-size: var(--project-count-width);
+    text-align: center;
+  }
+
+  &:not(:has(> .tabular-nums))::after {
+    margin-inline-end: calc(var(--project-count-width) + var(--project-header-gap));
+  }
+
+  &::after {
+    padding-inline: 0;
+    background: transparent;
+    font-weight: 500;
+  }
+}
+
+/* T3 strips test IDs from the temporary rows used for the exit animation. */
+[data-app-sidebar] [data-sidebar-row][data-sidebar-parent^="folder:"] {
+  --weft-guide-x: 10px;
+  min-height: 40px;
+  height: auto;
+  position: relative;
+  inline-size: calc(100% - 7px);
+  box-sizing: border-box;
+  margin-inline-start: 7px;
+  padding-block: 3px;
+  padding-inline: 29px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+
+  /* Keep the guide in the project icon column and outside the selection. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: -1px;
+    inset-inline-start: var(--weft-guide-x);
+    inline-size: 1px;
+    background: color-mix(in srgb, var(--sidebar-foreground) 9%, transparent);
+    pointer-events: none;
+  }
+
+  /* All highlighted states use the same capsule and leave the guide clear. */
+  &:is(:hover, :focus-visible, [aria-current]:not([aria-current="false"])) {
+    isolation: isolate;
+    background: transparent;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      inset-inline-start: 18px;
+      z-index: -1;
+      border-radius: inherit;
+      background: var(--project-thread-highlight, transparent);
+      pointer-events: none;
+    }
+  }
+
+  &:hover {
+    --project-thread-highlight: var(--sidebar-row-hover);
+  }
+
+  &[aria-current]:not([aria-current="false"]) {
+    --project-thread-highlight: color-mix(
+      in srgb,
+      var(--sidebar-foreground) 10%,
+      var(--sidebar)
+    );
+    box-shadow: none;
+  }
+
+  &:focus-visible {
+    box-shadow: none;
+    outline: none;
+
+    &::after {
+      box-shadow: inset 0 0 0 2px var(--ring, currentColor);
+    }
+  }
+
+  &.flex-col {
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
+  }
+
+  &.flex-col > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Keep the native provider history alongside the title and status. */
+  &.flex-col > div.mt-0\.5 {
+    flex: none;
+    margin-block-start: 0;
+
+    & > :not(span[aria-hidden="true"].ml-auto:last-child) {
+      display: none;
+    }
+
+    /* The native opacity classes distinguish the latest provider from history. */
+    & > span[aria-hidden="true"].ml-auto:last-child :is(.opacity-35, .opacity-60) {
+      inline-size: 11px;
+      block-size: 11px;
+    }
+
+    & > span[aria-hidden="true"].ml-auto:last-child .opacity-60 {
+      opacity: 0.9;
+    }
+  }
+
+  /* Idle timestamps are plain spans. Status indicators carry different markup. */
+  & > div:first-child > span.min-w-8 > span.tabular-nums > span.text-xs:not(.inline-flex) {
+    display: none;
+  }
+}

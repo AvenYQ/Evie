@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 
 import "@fontsource-variable/inter";
 import "./index.css";
-import "./weft/weft.css";
+import "./weft"; // Weft: single entrypoint (marks html[data-weft] and loads Weft styles).
 
 import { trackKeyboardLayout } from "./keyboardLayout";
 import { hasCloudPublicConfig } from "./cloud/publicConfig";

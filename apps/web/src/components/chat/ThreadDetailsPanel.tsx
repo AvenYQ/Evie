@@ -28,8 +28,13 @@ import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import { ThreadRepositorySections } from "./ThreadRepositorySections";
 import { ThreadServersPanel } from "./ThreadServersPanel";
-import { ThreadDetailsContext, type ThreadDetailsUsageInput } from "./ThreadDetailsUsage";
-import { WeftUsageLimitsSection } from "../../weft/WeftUsageLimitsSection";
+import {
+  ThreadDetailsContext,
+  ThreadDetailsUsage,
+  type ThreadDetailsUsageInput,
+} from "./ThreadDetailsUsage";
+import { WeftUsageLimitsSection } from "../../weft/WeftUsageLimitsSection"; // Weft: replaces ThreadDetailsUsage below.
+void ThreadDetailsUsage;
 import { ThreadDetailsItemsMenuItems } from "./ThreadDetailsItemsMenu";
 import { resolveThreadDetailsVisibility, THREAD_DETAILS_ITEMS } from "./threadDetailsItems";
 import { useClientSettings } from "../../hooks/useSettings";

@@ -59,8 +59,13 @@ function simulate(from: Sample, target: Span, dt: number) {
   const soft = STIFF / (STRETCH * STRETCH);
   const samples: Sample[] = [from];
   let state = from;
+  // Which edge leads is re-decided every step; a downward move uses the mirror of the upward
+  // rule so it settles the same way instead of snapping its trailing edge back and forth.
+  const goingDown = target.top + target.bottom > from.top + from.bottom;
   for (let step = 0; step < 600; step++) {
-    const down = target.bottom > state.bottom || target.top > state.top;
+    const down = goingDown
+      ? !(target.top < state.top || target.bottom < state.bottom)
+      : target.bottom > state.bottom || target.top > state.top;
     const [top, vTop] = spring(state.top, state.vTop, target.top, down ? soft : STIFF);
     const [bottom, vBottom] = spring(
       state.bottom,
@@ -369,9 +374,17 @@ export function createWeftSidebarIndicators(list: HTMLUListElement) {
     const origin = list.getBoundingClientRect();
     const rowLeft = box.left - origin.left;
     const top = box.top - origin.top;
+    const rowStyle = getComputedStyle(row);
+    const guideToken = parseFloat(rowStyle.getPropertyValue("--weft-guide-x"));
     const guide = getComputedStyle(row, "::before");
-    const hasGuide = guide.content !== "none" && guide.position === "absolute";
-    const guideX = rowLeft + (hasGuide ? parseFloat(guide.left) + parseFloat(guide.width) / 2 : 10);
+    const hasGuide =
+      Number.isFinite(guideToken) || (guide.content !== "none" && guide.position === "absolute");
+    const guideOffset = Number.isFinite(guideToken)
+      ? guideToken + 0.5
+      : hasGuide
+        ? parseFloat(guide.left) + parseFloat(guide.width) / 2
+        : 10;
+    const guideX = rowLeft + guideOffset;
     const capsuleLeft = hasGuide ? guideX + 7.5 : rowLeft;
     const group = row.dataset.sidebarParent ?? null;
     return {

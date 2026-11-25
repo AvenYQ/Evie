@@ -32,5 +32,19 @@ if ! git rebase upstream/main; then
 fi
 echo "✓ 你的 $(git rev-list --count upstream/main..HEAD) 个改动已叠到最新官方代码上"
 
+# 检查上游是否改动了 Weft 替换或深度依赖的关键官方文件，避免语义漂移无声发生。
+WATCHED_FILES=(
+  apps/web/src/components/Sidebar.motion.ts
+  apps/web/src/components/chat/ThreadDetailsUsage.tsx
+  apps/web/src/components/chat/ComposerBannerStack.tsx
+  apps/web/src/components/chat/UsageLimitRecoveryBanner.tsx
+)
+DRIFT="$(git diff --name-only "$BEFORE..$AFTER" -- "${WATCHED_FILES[@]}" || true)"
+if [[ -n "$DRIFT" ]]; then
+  echo
+  echo "⚠ 上游更新了以下 Weft 替换/依赖的官方文件，建议检查是否需要同步逻辑："
+  printf '  - %s\n' $DRIFT
+fi
+
 [[ "${1:-}" == "--no-build" ]] && exit 0
 exec "$REPO/weft/build.sh"
