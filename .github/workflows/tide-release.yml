@@ -53,7 +53,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream "$UPSTREAM"
           git fetch --no-tags upstream main
-          git fetch --no-tags upstream 'refs/tags/v*-nightly.*:refs/tags/v*-nightly.*'
+          git fetch --no-tags upstream 'refs/tags/v*:refs/tags/v*'
           tag="$(git tag -l 'v*-nightly.*' --sort=-v:refname | head -1)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if [[ "$BUILD_ONLY" == "true" ]]; then
