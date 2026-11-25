@@ -156,27 +156,25 @@ describe("createWeftSidebarListMotion", () => {
     expect(a1.li.getAnimations()).toHaveLength(1);
   });
 
-  it("resolves theme-specific tick colors for dune-garden and dune-plotter-tide in light and dark mode", () => {
+  it("uses --app-theme-accent by default and honors theme-declared --weft-tick-color overrides", () => {
     using harness = mountFolderList();
     const { list, indicator } = harness;
     const tick = indicator("selected-tick");
     document.documentElement.style.setProperty("--app-theme-accent", "#d45c3d");
+    document.documentElement.style.removeProperty("--weft-tick-color");
 
-    // Default / 网点晨昏 -> uses --app-theme-accent
-    document.documentElement.dataset.themeId = "dune-halftone-quota";
+    // Default (e.g. 网点晨昏) -> falls back to --app-theme-accent
     expect(getComputedStyle(tick).backgroundColor).toBe("rgb(212, 92, 61)");
 
-    // 剪纸花园 light & dark
-    document.documentElement.dataset.themeId = "dune-garden";
+    // Theme skin override (e.g. 剪纸花园 / 绘图纸潮汐 via --weft-tick-color)
+    document.documentElement.style.setProperty("--weft-tick-color", "#5d7a4a");
     expect(getComputedStyle(tick).backgroundColor).toBe("rgb(93, 122, 74)");
-    document.documentElement.classList.add("dark");
-    expect(getComputedStyle(tick).backgroundColor).toBe("rgb(168, 196, 142)");
 
-    // 绘图纸潮汐 dark & light
-    document.documentElement.dataset.themeId = "dune-plotter-tide";
+    document.documentElement.style.setProperty("--weft-tick-color", "#aab6d0");
     expect(getComputedStyle(tick).backgroundColor).toBe("rgb(170, 182, 208)");
-    document.documentElement.classList.remove("dark");
-    expect(getComputedStyle(tick).backgroundColor).toBe("rgb(91, 107, 140)");
+
+    document.documentElement.style.removeProperty("--weft-tick-color");
+    expect(getComputedStyle(tick).backgroundColor).toBe("rgb(212, 92, 61)");
 
     expect(list.dataset.weftMotion).toBe("");
   });
