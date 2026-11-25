@@ -10,6 +10,11 @@
   --weft-dur-hover: 150ms;
   --weft-dur-state: 200ms;
   --weft-dur-layout: 250ms;
+  /* Tide brand mark (same colors as the app icon). */
+  --tide-mark-sky: #dcd6fb;
+  --tide-mark-back: #a89cf7;
+  --tide-mark-mid: #6650e8;
+  --tide-mark-front: #3a2db4;
 }
 
 /* Theme skins may declare --weft-tick-color to override the default accent color. */
