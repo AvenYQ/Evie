@@ -2776,7 +2776,8 @@ export function resolveDesktopBuildIconAssets(version: string): DesktopBuildIcon
   }
 
   return {
-    macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
+    // Weft: the personal build carries its own icon (set by weft/build.sh).
+    macIconPng: process.env.WEFT_MAC_ICON_PNG?.trim() || BRAND_ASSET_PATHS.productionMacIconPng,
     linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
     windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
   };

@@ -85,7 +85,10 @@ export class DesktopEnvironment extends Context.Service<
   }
 >()("@t3tools/desktop/app/DesktopEnvironment") {}
 
-const APP_BASE_NAME = "T3 Code";
+// Weft: the packaged personal build is named at build time so it never reads as official T3 Code.
+declare const __WEFT_APP_NAME__: string | undefined;
+const APP_BASE_NAME =
+  (typeof __WEFT_APP_NAME__ === "undefined" ? "" : __WEFT_APP_NAME__) || "T3 Code";
 
 function resolveDesktopAppStageLabel(input: {
   readonly isDevelopment: boolean;
