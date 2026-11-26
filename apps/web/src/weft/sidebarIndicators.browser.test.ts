@@ -193,7 +193,7 @@ describe("createWeftSidebarIndicators", () => {
       rows[0]!.setAttribute("aria-current", "page");
       const tick = indicator("selected-tick");
       await vi.waitFor(() => {
-        expect(tick.style.opacity).toBe("1");
+        expect(getComputedStyle(tick).opacity).toBe("1");
       });
 
       // Click row 5 in folder B -> should cross-fade instead of stretching across the gap.
