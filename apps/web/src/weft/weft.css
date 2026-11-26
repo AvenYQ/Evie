@@ -33,8 +33,10 @@
 [data-weft-boot] [data-yaya-part] {
   transform-box: view-box;
 }
-[data-weft-boot] [data-yaya-part="eyes"] {
-  transform-origin: 620px 510px;
+[data-weft-boot] [data-yaya-part="eye-left"],
+[data-weft-boot] [data-yaya-part="eye-right"] {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 [data-weft-boot] [data-yaya-part="pocket"] {
   transform-origin: 616px 750px;

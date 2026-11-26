@@ -61,19 +61,22 @@ describe("startWeftBootScene", () => {
 
     scene.appears();
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(8);
+      expect(animationsIn(cover)).toHaveLength(9);
     });
     expect(mark.hasAttribute("data-yaya-waiting")).toBe(false);
     const duck = cover.querySelector('[data-yaya-part="duck"]')!;
     const ticket = cover.querySelector('[data-yaya-part="ticket"]')!;
-    const eyes = cover.querySelector('[data-yaya-part="eyes"]')!;
-    expect(duck.getAnimations()[0]!.effect?.getTiming().delay).toBe(140);
-    expect(ticket.getAnimations()[0]!.effect?.getTiming().delay).toBe(575);
-    const [blink] = eyes.getAnimations();
-    expect(blink!.effect?.getTiming().iterations).toBe(1);
-    expect((blink!.effect as KeyframeEffect).getKeyframes().map((frame) => frame.transform)).toEqual(
-      ["scaleY(1)", "scaleY(0.05)", "scaleY(0.05)", "scaleY(1)"],
-    );
+    const leftEye = cover.querySelector('[data-yaya-part="eye-left"]')!;
+    const rightEye = cover.querySelector('[data-yaya-part="eye-right"]')!;
+    expect(duck.getAnimations()[0]!.effect?.getTiming().delay).toBe(80);
+    expect(ticket.getAnimations()[0]!.effect?.getTiming().delay).toBe(415);
+    for (const eye of [leftEye, rightEye]) {
+      const [blink] = eye.getAnimations();
+      expect(blink!.effect?.getTiming().iterations).toBe(1);
+      expect((blink!.effect as KeyframeEffect).getKeyframes().map((frame) => frame.transform)).toEqual(
+        ["scaleY(1)", "scaleY(0.05)", "scaleY(0.05)", "scaleY(1)"],
+      );
+    }
     expect(getComputedStyle(scene.root).transform).toBe("none");
     expect(getComputedStyle(scene.root).opacity).toBe("1");
 
@@ -160,7 +163,7 @@ describe("startWeftBootScene", () => {
     expect(animationsIn(cover)).toHaveLength(0);
     // Past the 5s fallback, plus the two frames it waits before playing.
     vi.advanceTimersByTime(200);
-    expect(animationsIn(cover)).toHaveLength(8);
+    expect(animationsIn(cover)).toHaveLength(9);
   });
 
   it("centers the mark when the logo has not been laid out yet", () => {
@@ -183,7 +186,7 @@ describe("startWeftBootScene", () => {
     visibility.mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(8);
+      expect(animationsIn(cover)).toHaveLength(9);
     });
   });
 

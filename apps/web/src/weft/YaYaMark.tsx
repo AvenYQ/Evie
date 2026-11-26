@@ -1,4 +1,4 @@
-import yayaMarkUrl from "./yaya-mark.svg";
+import yayaMarkUrl from "./yaya-sidebar-mark.svg";
 
 export function YaYaWordmark({ className }: { className?: string }) {
   return (

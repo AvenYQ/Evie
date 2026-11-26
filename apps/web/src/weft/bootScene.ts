@@ -2,8 +2,8 @@ import yayaMark from "./yaya-mark.svg?raw";
 
 // The body-level cover survives React replacing the shell without transforming the app beneath it.
 const MARK_SIZE = 124;
-const FADE_DELAY_MS = 1380;
-const FADE_MS = 280;
+const FADE_DELAY_MS = 960;
+const FADE_MS = 240;
 const REDUCED_MS = 160;
 const REVEAL_EASE = "cubic-bezier(.24,.76,.24,1)";
 const PEEK: Keyframe[] = [
@@ -105,10 +105,10 @@ export function startWeftBootScene(doc: Document = document) {
           .finished.then(finish, finish);
         return;
       }
-      const peekTiming = { duration: 650, delay: 140, easing: "linear" };
+      const peekTiming = { duration: 500, delay: 80, easing: "linear" };
       playPart("duck", PEEK, peekTiming);
       playPart("bill", PEEK, peekTiming);
-      playPart("bill-overlap", [{ opacity: 0 }, { opacity: 1 }], { duration: 65, delay: 610 });
+      playPart("bill-overlap", [{ opacity: 0 }, { opacity: 1 }], { duration: 55, delay: 440 });
       playPart(
         "pocket",
         [
@@ -116,7 +116,7 @@ export function startWeftBootScene(doc: Document = document) {
           { transform: "rotate(1.5deg)", offset: 0.45 },
           { transform: "rotate(0deg)" },
         ],
-        { duration: 400, delay: 300 },
+        { duration: 310, delay: 205 },
       );
       playPart(
         "ticket",
@@ -125,7 +125,7 @@ export function startWeftBootScene(doc: Document = document) {
           { transform: "translate(6px, -13px) rotate(7deg) scale(1.04)", opacity: 1, offset: 0.68 },
           { transform: "translate(0px, 0px) rotate(0deg) scale(1)", opacity: 1 },
         ],
-        { duration: 360, delay: 575 },
+        { duration: 280, delay: 415 },
       );
       playPart(
         "spark",
@@ -134,18 +134,16 @@ export function startWeftBootScene(doc: Document = document) {
           { transform: "translate(0px, -4px) scale(1.12)", opacity: 1, offset: 0.65 },
           { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
         ],
-        { duration: 245, delay: 685 },
+        { duration: 190, delay: 500 },
       );
-      playPart(
-        "eyes",
-        [
-          { transform: "scaleY(1)", offset: 0, easing: "ease-in" },
-          { transform: "scaleY(0.05)", offset: 0.38 },
-          { transform: "scaleY(0.05)", offset: 0.49, easing: "ease-out" },
-          { transform: "scaleY(1)", offset: 1 },
-        ],
-        { duration: 160, delay: 1015 },
-      );
+      const blinkFrames: Keyframe[] = [
+        { transform: "scaleY(1)", offset: 0, easing: "ease-in" },
+        { transform: "scaleY(0.05)", offset: 0.38 },
+        { transform: "scaleY(0.05)", offset: 0.49, easing: "ease-out" },
+        { transform: "scaleY(1)", offset: 1 },
+      ];
+      playPart("eye-left", blinkFrames, { duration: 150, delay: 750 });
+      playPart("eye-right", blinkFrames, { duration: 150, delay: 750 });
       delete mark.dataset.yayaWaiting;
       play(overlay, [{ opacity: 1 }, { opacity: 0 }], {
         duration: FADE_MS,
