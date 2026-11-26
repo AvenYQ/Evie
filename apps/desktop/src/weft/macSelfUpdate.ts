@@ -95,6 +95,18 @@ export function pickMacZip(
 let prepared: { readonly version: string; readonly app: string; readonly work: string } | null =
   null;
 
+/**
+ * `ditto` just wrote this tree and Spotlight/lsregister are still touching it, so Node's recursive
+ * rm can lose that race with ENOTEMPTY and abort the whole download. Fall back to /bin/rm -rf.
+ */
+async function removeDirectory(path: string): Promise<void> {
+  try {
+    await NodeFSP.rm(path, { recursive: true, force: true, maxRetries: 3 });
+  } catch {
+    await run("/bin/rm", ["-rf", path]).catch(() => undefined);
+  }
+}
+
 /** Downloads, verifies and unpacks the update the last check found; emits updater events. */
 export async function downloadMacUpdate(updater: unknown): Promise<void> {
   const internals = updater as UpdaterInternals;
@@ -109,7 +121,7 @@ export async function downloadMacUpdate(updater: unknown): Promise<void> {
   }
   await NodeFSP.access(NodePath.dirname(bundle), NodeFSP.constants.W_OK);
 
-  if (prepared !== null) await NodeFSP.rm(prepared.work, { recursive: true, force: true });
+  if (prepared !== null) await removeDirectory(prepared.work);
   prepared = null;
   const work = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "tide-update-"));
   try {
@@ -183,7 +195,7 @@ export async function downloadMacUpdate(updater: unknown): Promise<void> {
     prepared = { version: info.version, app, work };
     internals.emit("update-downloaded", info);
   } catch (error) {
-    await NodeFSP.rm(work, { recursive: true, force: true }).catch(() => undefined);
+    await removeDirectory(work);
     throw error;
   }
 }
