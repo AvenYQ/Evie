@@ -11,7 +11,7 @@ const LAYERS = [
 const wave = (y: number) =>
   `M150 ${y} c90.5 -73.15 90.5 -73.15 181 0 s90.5 73.15 181 0 c90.5 -73.15 90.5 -73.15 181 0 s90.5 73.15 181 0 V900 H150 Z`;
 
-export function TideGlyph(props: SVGProps<SVGSVGElement>) {
+function TideGlyph(props: SVGProps<SVGSVGElement>) {
   const clip = `tide-glyph-${useId()}`;
   return (
     <svg viewBox="212 212 600 600" {...props}>

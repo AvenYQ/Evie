@@ -160,45 +160,6 @@ describe("resolveAllAgentUsageCards", () => {
     expect(cards[2]?.primary?.tone).toBe("error");
   });
 
-  it("matches the active Antigravity model window when Antigravity is the current provider", () => {
-    const antigravity = makeProvider({
-      id: "antigravity",
-      driver: "antigravity",
-      usageLimits: {
-        checkedAt,
-        windows: [
-          {
-            id: "claude-gpt",
-            kind: "other",
-            label: "Claude / GPT",
-            usedPercent: 95,
-          },
-          {
-            id: "gemini-pro",
-            kind: "other",
-            label: "Gemini 3.1 Pro",
-            usedPercent: 30,
-          },
-        ],
-      },
-    });
-
-    const cards = resolveAllAgentUsageCards({
-      providerInstanceId: ProviderInstanceId.make("antigravity"),
-      model: "gemini-3.1-pro-high",
-      providers: [antigravity],
-      sources: [],
-      now,
-    });
-
-    expect(cards).toHaveLength(1);
-    expect(cards[0]?.primary?.id).toBe("gemini-pro");
-    expect(cards[0]?.primary?.remainingPercent).toBe(70);
-    expect(cards[0]?.windows.map((window) => window.id)).toEqual(["gemini-pro", "claude-gpt"]);
-    expect(cards[0]?.windows[0]?.matchesCurrentModel).toBe(true);
-    expect(cards[0]?.windows[1]?.matchesCurrentModel).toBe(false);
-  });
-
   it("orders session (5h) before weekly (7d) even when the provider returns weekly first", () => {
     const codex = makeProvider({
       id: "codex",

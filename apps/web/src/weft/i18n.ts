@@ -49,7 +49,7 @@ const CATALOG: Readonly<Record<string, WeftMessages>> = {
   },
 };
 
-export function resolveWeftMessages(locale: string): WeftMessages {
+function resolveWeftMessages(locale: string): WeftMessages {
   const exact = CATALOG[locale];
   if (exact) return exact;
   const base = locale.split("-")[0];
