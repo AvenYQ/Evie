@@ -30,9 +30,25 @@
   width: 100%;
   height: 100%;
 }
-[data-weft-boot-eyes] {
-  transform-box: fill-box;
-  transform-origin: center;
+[data-weft-boot] [data-yaya-part] {
+  transform-box: view-box;
+}
+[data-weft-boot] [data-yaya-part="eyes"] {
+  transform-origin: 620px 510px;
+}
+[data-weft-boot] [data-yaya-part="pocket"] {
+  transform-origin: 616px 750px;
+}
+[data-weft-boot] [data-yaya-part="ticket"] {
+  transform-origin: 980px 379px;
+}
+[data-weft-boot] [data-yaya-part="spark"] {
+  transform-origin: 898px 361px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-yaya-waiting] [data-yaya-reveal] {
+    visibility: hidden;
+  }
 }
 
 /* Dialog & Sheet motion unified onto Weft's drawer easing without editing official UI files. */

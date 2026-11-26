@@ -15,7 +15,7 @@ import {
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { cn } from "../../lib/utils";
 import { useIssuesSupported, usePullRequestsSupported } from "../../state/environments";
-import { KiKiWordmark } from "~/weft/KiKiMark";
+import { YaYaWordmark } from "~/weft/YaYaMark";
 import {
   resolveEnvironmentIdentificationPillLabel,
   resolveSidebarStageBackdropVariant,
@@ -183,7 +183,7 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
 
 function SidebarBrandMark({ onBackdrop }: { onBackdrop: boolean }) {
   return (
-    <KiKiWordmark
+    <YaYaWordmark
       className={cn(
         "inline-flex min-w-0 items-center gap-1.5 py-1 text-sm font-semibold tracking-tight",
         onBackdrop && "text-white",

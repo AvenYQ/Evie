@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="110 115 1030 1030" width="1030" height="1030">
+  <defs>
+    <rect id="tile" x="116" y="120" width="1018" height="1016" rx="230" fill="#ffffff"/>
+    <g id="back">
+      <path d="M180 676 Q147 570 246 544 L886 451 Q970 432 1002 476 Q1020 498 1010 549 L980 795 L225 923Z" fill="#c9b5f5"/>
+      <path d="M244 796 L268 939 L230 956 Q201 969 192 937 L181 857 Q176 826 204 812Z" fill="#fb706c"/>
+      <path d="M297 742 L947 630 Q976 626 988 646 L970 818 L280 861Z" fill="#6a46da"/>
+    </g>
+    <path id="face" d="M365 726 C272 684 251 587 317 442 C282 421 264 397 267 374 Q271 305 336 317 Q366 318 396 327 C370 299 370 272 388 249 Q430 196 528 269 C608 243 688 258 748 298 C813 340 852 413 859 506 C889 601 827 678 754 692 L531 814Z" fill="#ffc629"/>
+    <g id="eye-drawing">
+      <path d="M438 514 Q538 497 628 471 C656 544 623 605 567 618 C503 634 452 582 438 514Z" fill="white"/>
+      <path d="M542 495 Q586 484 628 471 C643 513 631 546 605 557 C577 570 548 550 544 520Z" fill="#21133b"/>
+      <path d="M657 459 Q735 425 792 409 C824 465 792 521 751 531 C706 542 668 513 657 459Z" fill="white"/>
+      <path d="M741 426 Q775 415 792 409 C807 442 807 461 788 476 Q770 490 753 473 Q741 456 741 426Z" fill="#21133b"/>
+    </g>
+    <g id="front">
+      <path d="M304 740 L948 630 Q1020 620 1036 679 Q1042 697 1035 725 L1003 892 Q994 945 942 957 L352 1042 Q294 1052 277 995 L235 833 Q220 766 304 740Z" fill="#bca2f4"/>
+      <path d="M302 754 L950 641 Q1026 628 1036 692 Q1040 710 1035 728 L1003 894 Q993 947 942 957 L350 1042 Q292 1052 277 995 L236 837 Q223 773 302 754Z" fill="#7249ee"/>
+    </g>
+    <path id="bill-drawing" d="M617 609 C649 576 728 565 788 541 Q880 500 920 509 C962 515 974 558 952 596 C919 653 854 684 787 695 C726 705 662 700 624 672 Q590 648 617 609Z" fill="#fa7e1d"/>
+    <clipPath id="pocket-opening" clipPathUnits="userSpaceOnUse">
+      <path d="M130 185 H1100 V735 H916 L285 849 H130Z"/>
+    </clipPath>
+  </defs>
+  <use href="#tile"/>
+  <use href="#back"/>
+  <g data-yaya-reveal="" clip-path="url(#pocket-opening)">
+    <g data-yaya-part="duck">
+      <use href="#face"/>
+      <g data-yaya-part="eyes"><use href="#eye-drawing"/></g>
+      <use href="#bill-drawing"/>
+    </g>
+  </g>
+  <g data-yaya-part="pocket"><use href="#front"/></g>
+  <g data-yaya-part="bill-overlap" data-yaya-reveal="" clip-path="url(#pocket-opening)">
+    <g data-yaya-part="bill"><use href="#bill-drawing"/></g>
+  </g>
+  <g data-yaya-part="ticket" data-yaya-reveal=""><rect x="948" y="310" width="76" height="130" rx="21" fill="#2bd0e4" transform="rotate(27 986 375)"/></g>
+  <circle data-yaya-part="spark" data-yaya-reveal="" cx="898" cy="362" r="24" fill="#ff7165"/>
+</svg>

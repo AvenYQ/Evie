@@ -9,7 +9,7 @@ function mount({ errorFirst = false, logoStyle = "width:64px;height:64px;display
   const root = document.createElement("div");
   root.id = "root";
   root.innerHTML = `<div id="boot-shell" style="background: inherit; display:flex; height: 300px; align-items:center; justify-content:center">
-    <div id="boot-shell-card">${errorFirst ? `<div id="boot-error"></div>` : ""}<img id="boot-shell-logo" src="/src/weft/kiki-mark.svg" alt="KiKi" style="${logoStyle}" /></div>
+    <div id="boot-shell-card">${errorFirst ? `<div id="boot-error"></div>` : ""}<img id="boot-shell-logo" src="/src/weft/yaya-folder.svg" alt="YaYa" style="${logoStyle}" /></div>
   </div>`;
   document.body.append(root);
   const stop = startWeftBootScene();
@@ -50,22 +50,29 @@ describe("startWeftBootScene", () => {
     expect(getComputedStyle(cover).pointerEvents).toBe("none");
   });
 
-  it("stays until the app draws something, then blinks once and fades out", async () => {
+  it("waits with the folder, then reveals the duck and ticket before fading out", async () => {
     using scene = mount();
     const cover = scene.cover()!;
     scene.appears("<div></div>");
     await settleObservers();
     expect(animationsIn(cover)).toHaveLength(0);
+    const mark = cover.querySelector("[data-weft-boot-mark]")!;
+    expect(mark.hasAttribute("data-yaya-waiting")).toBe(true);
 
     scene.appears();
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(2);
+      expect(animationsIn(cover)).toHaveLength(8);
     });
-    const eyes = cover.querySelector("[data-weft-boot-eyes]")!;
+    expect(mark.hasAttribute("data-yaya-waiting")).toBe(false);
+    const duck = cover.querySelector('[data-yaya-part="duck"]')!;
+    const ticket = cover.querySelector('[data-yaya-part="ticket"]')!;
+    const eyes = cover.querySelector('[data-yaya-part="eyes"]')!;
+    expect(duck.getAnimations()[0]!.effect?.getTiming().delay).toBe(140);
+    expect(ticket.getAnimations()[0]!.effect?.getTiming().delay).toBe(575);
     const [blink] = eyes.getAnimations();
     expect(blink!.effect?.getTiming().iterations).toBe(1);
     expect((blink!.effect as KeyframeEffect).getKeyframes().map((frame) => frame.transform)).toEqual(
-      ["scaleY(1)", "scaleY(0.04)", "scaleY(0.04)", "scaleY(1)"],
+      ["scaleY(1)", "scaleY(0.05)", "scaleY(0.05)", "scaleY(1)"],
     );
     expect(getComputedStyle(scene.root).transform).toBe("none");
     expect(getComputedStyle(scene.root).opacity).toBe("1");
@@ -126,7 +133,7 @@ describe("startWeftBootScene", () => {
       expect(animationsIn(cover)).toHaveLength(1);
     });
     const fade = cover.getAnimations()[0]!;
-    expect(fade.effect?.getTiming().fill).toBe("forwards");
+    expect(fade.effect?.getTiming().fill).toBe("both");
     fade.finish();
     await vi.waitFor(() => {
       expect(scene.cover()).toBeNull();
@@ -153,14 +160,14 @@ describe("startWeftBootScene", () => {
     expect(animationsIn(cover)).toHaveLength(0);
     // Past the 5s fallback, plus the two frames it waits before playing.
     vi.advanceTimersByTime(200);
-    expect(animationsIn(cover)).toHaveLength(2);
+    expect(animationsIn(cover)).toHaveLength(8);
   });
 
   it("centers the mark when the logo has not been laid out yet", () => {
     using scene = mount({ logoStyle: "width:0;height:0;display:block" });
     const shell = document.getElementById("boot-shell")!.getBoundingClientRect();
     const mark = scene.cover()!.querySelector("[data-weft-boot-mark]")!.getBoundingClientRect();
-    expect(mark.width).toBe(64);
+    expect(mark.width).toBe(124);
     expect(Math.abs(mark.left + mark.width / 2 - (shell.left + shell.width / 2))).toBeLessThan(1);
     expect(Math.abs(mark.top + mark.height / 2 - (shell.top + shell.height / 2))).toBeLessThan(1);
   });
@@ -176,7 +183,7 @@ describe("startWeftBootScene", () => {
     visibility.mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(2);
+      expect(animationsIn(cover)).toHaveLength(8);
     });
   });
 

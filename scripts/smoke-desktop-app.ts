@@ -22,6 +22,7 @@ const { values } = NodeUtil.parseArgs({
     // An unpackaged app directory for a plain Electron executable, as PR CI runs it.
     app: { type: "string" },
     "artifacts-dir": { type: "string" },
+    brand: { type: "string" },
   },
 });
 const executable = values.executable;
@@ -66,6 +67,19 @@ try {
     step = "opening the thread";
     await thread.click();
     await page.getByText(THREAD_MESSAGE).waitFor({ timeout: STEP_TIMEOUT_MS });
+    const brand = values.brand;
+    if (brand !== undefined) {
+      step = `verifying "${brand}" branding`;
+      await page.waitForFunction((name) => document.title.includes(name), brand, {
+        timeout: STEP_TIMEOUT_MS,
+      });
+      await page.getByRole("link", { name: brand, exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+      const url = new URL("/.well-known/oauth-protected-resource/mcp", page.url());
+      const metadata = await page.request.get(url.href);
+      if (!metadata.ok() || (await metadata.json()).resource_name !== brand) {
+        throw new Error(`Packaged backend did not advertise ${brand}`);
+      }
+    }
   } catch (error) {
     NodeFS.mkdirSync(artifactsDir, { recursive: true });
     await page

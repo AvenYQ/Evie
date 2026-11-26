@@ -15,6 +15,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as HttpClient from "effect/http/HttpClient";
 
+import { APP_BASE_NAME } from "../app/DesktopEnvironment.ts";
 import * as DesktopBackendPool from "./DesktopBackendPool.ts";
 
 // Each /oauth/token attempt may take 10 s, so a backend busy after ready needs several attempts.
@@ -111,7 +112,7 @@ export const make = Effect.gen(function* () {
             httpBaseUrl: config.httpBaseUrl.href,
             credential,
             clientMetadata: {
-              label: "T3 Code Desktop",
+              label: `${APP_BASE_NAME} Desktop`,
               deviceType: "desktop",
             },
           }).pipe(Effect.provideService(HttpClient.HttpClient, httpClient));

@@ -10,6 +10,7 @@ import { awaitServiceLauncherStop } from "../cloud/serviceLauncherClient.ts";
 import * as ServerConfig from "../config.ts";
 import { stopOnLauncherLoss } from "../launcherWatch.ts";
 import * as DatabaseMaintenance from "../persistence/DatabaseMaintenance.ts";
+import { productName } from "../productName.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as AutomaticPort from "./automaticPort.ts";
 import { type CliServerFlags, resolveServerConfig, sharedServerCommandFlags } from "./config.ts";
@@ -77,9 +78,9 @@ export const startCommand = Command.make("start", { ...sharedServerCommandFlags 
 const { autoBootstrapProjectFromCwd: _, ...serveCommandFlags } = sharedServerCommandFlags;
 
 export const serveCommand = Command.make("serve", serveCommandFlags).pipe(
-  Command.withShortDescription("Run T3 Code in this terminal, with no browser."),
+  Command.withShortDescription(`Run ${productName} in this terminal, with no browser.`),
   Command.withDescription(
-    "Run T3 Code in this terminal without opening a browser, and print pairing details. The background service runs this. To set up access from your other devices, run `t3 up`.",
+    `Run ${productName} in this terminal without opening a browser, and print pairing details. The background service runs this. To set up access from your other devices, run \`t3 up\`.`,
   ),
   Command.withHandler((flags) =>
     runServerCommand(
