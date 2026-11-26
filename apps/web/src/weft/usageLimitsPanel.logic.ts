@@ -5,6 +5,7 @@ import {
   type UsageLimitSourceSnapshots,
 } from "@t3tools/contracts";
 import {
+  antigravityWindowLimitsModel,
   type LimitPace,
   paceOf,
   paceRemainingPercent,
@@ -29,6 +30,7 @@ export interface WeftUsageWindow {
   readonly resetsAt: string | null;
   readonly resetMs: number | null;
   readonly accountsCount: number;
+  readonly matchesCurrentModel: boolean;
 }
 
 export interface WeftAgentUsageCard {
@@ -74,15 +76,36 @@ function windowOrderRank(window: WeftUsageWindow): number {
   }
 }
 
-function orderWindowsForDisplay(windows: readonly WeftUsageWindow[]): readonly WeftUsageWindow[] {
+function orderWindowsForDisplay(
+  driver: ServerProvider["driver"],
+  windows: readonly WeftUsageWindow[],
+  isCurrent: boolean,
+): readonly WeftUsageWindow[] {
   if (windows.length <= 1) return windows;
   const copy = [...windows];
+  if (driver === "antigravity" && isCurrent) {
+    copy.sort((a, b) => Number(b.matchesCurrentModel) - Number(a.matchesCurrentModel));
+    return copy;
+  }
   copy.sort((a, b) => windowOrderRank(a) - windowOrderRank(b));
   return copy;
 }
 
-function pickPrimaryWindow(windows: readonly WeftUsageWindow[]): WeftUsageWindow | null {
+function pickPrimaryWindow(
+  driver: ServerProvider["driver"],
+  windows: readonly WeftUsageWindow[],
+  model: string | null,
+  isCurrent: boolean,
+): WeftUsageWindow | null {
   if (windows.length === 0) return null;
+  if (driver === "antigravity" && isCurrent && model !== null) {
+    const matching = windows.filter((window) => window.matchesCurrentModel);
+    if (matching.length > 0) {
+      return matching.reduce((lowest, candidate) =>
+        candidate.remainingPercent < lowest.remainingPercent ? candidate : lowest,
+      );
+    }
+  }
   // Surface the tightest bottleneck first so the user immediately sees if a 5h or 7d cap is low.
   return windows.reduce((lowest, candidate) =>
     candidate.remainingPercent < lowest.remainingPercent ? candidate : lowest,
@@ -144,6 +167,10 @@ export function resolveAllAgentUsageCards(input: {
           resetsAt,
           resetMs,
           accountsCount: window.members.length,
+          matchesCurrentModel:
+            provider.driver === "antigravity" && isCurrent && model !== null
+              ? antigravityWindowLimitsModel(window, model)
+              : false,
         };
       });
     } else {
@@ -168,12 +195,16 @@ export function resolveAllAgentUsageCards(input: {
             resetsAt: window.resetsAt ?? null,
             resetMs: parseResetMs(window.resetsAt, now),
             accountsCount: 1,
+            matchesCurrentModel:
+              provider.driver === "antigravity" && isCurrent && model !== null
+                ? antigravityWindowLimitsModel(window, model)
+                : false,
           };
         });
       }
     }
 
-    const orderedWindows = orderWindowsForDisplay(windows);
+    const orderedWindows = orderWindowsForDisplay(provider.driver, windows, isCurrent);
     const card: WeftAgentUsageCard = {
       instanceId: provider.instanceId,
       driver: provider.driver,
@@ -181,7 +212,7 @@ export function resolveAllAgentUsageCards(input: {
       accentColor: provider.accentColor,
       isCurrent,
       windows: orderedWindows,
-      primary: pickPrimaryWindow(orderedWindows),
+      primary: pickPrimaryWindow(provider.driver, orderedWindows, model, isCurrent),
       unavailableNotice,
     };
 

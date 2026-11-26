@@ -301,7 +301,12 @@ export function WeftUsageLimitsSection({
                               : null,
                           ].filter((part) => part !== null);
                           const row = (
-                            <div key={window.id} data-weft-lg="subwin" data-tone={window.tone}>
+                            <div
+                              key={window.id}
+                              data-weft-lg="subwin"
+                              data-tone={window.tone}
+                              data-active-model={window.matchesCurrentModel ? "true" : undefined}
+                            >
                               <div data-weft-lg="subhead">
                                 <span>{details.join(" · ")}</span>
                                 <strong>{window.remainingPercent}%</strong>

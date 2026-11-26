@@ -651,6 +651,14 @@ html.dark [data-weft-usage] {
   --lg-bar-glow: rgb(236 118 92 / 48%);
 }
 
+[data-weft-usage]
+  [data-weft-lg="subwin"][data-active-model="true"]
+  [data-weft-lg="subhead"]
+  > span {
+  color: var(--foreground);
+  font-weight: 550;
+}
+
 [data-weft-usage] [data-weft-lg="subhead"] {
   display: flex;
   justify-content: space-between;
