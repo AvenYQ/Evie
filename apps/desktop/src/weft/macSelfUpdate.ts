@@ -37,10 +37,12 @@ export function swapScript(input: {
   readonly pid: number;
   readonly from: string;
   readonly to: string;
+  readonly target?: string;
   readonly log: string;
   readonly reopen: boolean;
 }): string {
   const { pid, from, to, log, reopen } = input;
+  const dest = input.target ?? to;
   return `#!/bin/sh
 exec >>${quote(log)} 2>&1
 echo "$(date) swap: waiting for ${pid}"
@@ -52,16 +54,18 @@ while kill -0 ${pid} 2>/dev/null; do
 done
 old=${quote(`${to}.old-${Date.now()}`)}
 if mv ${quote(to)} "$old"; then
-  if mv ${quote(from)} ${quote(to)}; then
+  if mv ${quote(from)} ${quote(dest)}; then
     rm -rf "$old"
-    /usr/bin/xattr -dr com.apple.quarantine ${quote(to)} 2>/dev/null
+    /usr/bin/xattr -dr com.apple.quarantine ${quote(dest)} 2>/dev/null
+    /usr/bin/touch ${quote(dest)} 2>/dev/null
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f ${quote(dest)} 2>/dev/null
     echo "$(date) swap: done"
   else
     mv "$old" ${quote(to)}
     echo "$(date) swap: failed, the old version stays"
   fi
 fi
-${reopen ? `/usr/bin/open ${quote(to)} || echo "$(date) swap: could not open the app"` : ""}
+${reopen ? `/usr/bin/open ${quote(dest)} || echo "$(date) swap: could not open the app"` : ""}
 `;
 }
 
@@ -162,7 +166,13 @@ export async function downloadMacUpdate(updater: unknown): Promise<void> {
     await NodeFSP.mkdir(unpacked);
     await run("/usr/bin/ditto", ["-x", "-k", zip, unpacked]);
     await NodeFSP.rm(zip, { force: true });
-    const app = NodePath.join(unpacked, NodePath.basename(bundle));
+    const entries = await NodeFSP.readdir(unpacked);
+    const sameName = entries.find((entry) => entry === NodePath.basename(bundle));
+    const appName = sameName ?? entries.find((entry) => entry.endsWith(".app"));
+    if (appName === undefined) {
+      throw new Error("the update archive does not contain an app bundle");
+    }
+    const app = NodePath.join(unpacked, appName);
     const plist = await NodeFSP.readFile(NodePath.join(app, "Contents", "Info.plist"), "utf8");
     const shown = /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]*)<\/string>/u.exec(
       plist,
@@ -183,6 +193,7 @@ export async function installMacUpdate(reopen: boolean, quit: () => void): Promi
   if (prepared === null) throw new Error("no downloaded update to install");
   const bundle = bundleOf(process.execPath);
   if (bundle === undefined) throw new Error("Tide is not running from an app bundle");
+  const target = NodePath.join(NodePath.dirname(bundle), NodePath.basename(prepared.app));
   const script = NodePath.join(prepared.work, "swap.sh");
   await NodeFSP.writeFile(
     script,
@@ -190,6 +201,7 @@ export async function installMacUpdate(reopen: boolean, quit: () => void): Promi
       pid: process.pid,
       from: prepared.app,
       to: bundle,
+      target,
       log: NodePath.join(prepared.work, "swap.log"),
       reopen,
     }),

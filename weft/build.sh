@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Weft：打包 YaYa 并安装到 /Applications/Tide.app（沿用现有更新所需的包名）
+# Weft：打包 YaYa 并安装到 /Applications/YaYa.app（带 AvenYQ/Tide 自动更新源）
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="Tide"
-OLD_APP_NAME="Weft"
+APP_NAME="YaYa"
+OLD_APP_NAMES=("Tide" "Weft")
 OUT="$REPO/release-weft"
 cd "$REPO"
 export PATH="$REPO/node_modules/.bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
@@ -16,7 +16,7 @@ VERSION="$(node -p "require('./apps/desktop/package.json').version")-nightly.$(d
 
 pnpm install --frozen-lockfile
 rm -rf "$OUT"
-WEFT_PRODUCT_NAME="$APP_NAME" WEFT_DISPLAY_NAME="YaYa" WEFT_MAC_ICON_PNG="weft/assets/yaya-macos-1024.png" node scripts/build-desktop-artifact.ts \
+WEFT_PRODUCT_NAME="$APP_NAME" WEFT_DISPLAY_NAME="$APP_NAME" WEFT_MAC_ICON_PNG="weft/assets/yaya-macos-1024.png" node scripts/build-desktop-artifact.ts \
   --platform mac --target zip --arch "$(uname -m | sed 's/x86_64/x64/')" --build-version "$VERSION" --output-dir "$OUT"
 
 # 打 zip 而不是 dir：electron-builder 只在打 zip 时才把 app-update.yml 写进包里，
@@ -32,7 +32,7 @@ APP="$(find "$UNPACKED" -maxdepth 1 -name "$APP_NAME.app" -type d | head -1)"
 
 # ps, not pgrep: pgrep can miss the running app from sandboxed shells.
 # grep without -q reads all of ps's output, so pipefail never sees a SIGPIPE from ps.
-for name in "$APP_NAME" "$OLD_APP_NAME"; do
+for name in "$APP_NAME" "${OLD_APP_NAMES[@]}"; do
   if ps -axo comm= | grep -x "/Applications/$name.app/Contents/MacOS/$name" >/dev/null; then
     echo "! $name 正在运行，先退出它再安装。新包在：$APP" >&2
     exit 3
@@ -41,6 +41,10 @@ done
 rm -rf "/Applications/$APP_NAME.app"
 ditto "$APP" "/Applications/$APP_NAME.app"
 xattr -cr "/Applications/$APP_NAME.app"
-# The app was called Weft before; the old bundle is a stale copy of the same build.
-rm -rf "/Applications/$OLD_APP_NAME.app"
-echo "✓ 已安装 /Applications/$APP_NAME.app（基于官方 $(git rev-parse --short upstream/main)）"
+touch "/Applications/$APP_NAME.app"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/$APP_NAME.app" 2>/dev/null || true
+# Clean up previous bundle names from earlier iterations (Weft / Tide).
+for old in "${OLD_APP_NAMES[@]}"; do
+  rm -rf "/Applications/$old.app"
+done
+echo "✓ 已安装 /Applications/$APP_NAME.app（基于官方 $(git rev-parse --short upstream/main 2>/dev/null || git rev-parse --short HEAD)）"

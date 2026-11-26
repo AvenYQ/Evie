@@ -34,8 +34,19 @@ describe("macSelfUpdate", () => {
       script.indexOf("mv '/tmp/new/Tide.app'"),
     );
     expect(script).toContain("/usr/bin/open");
+    expect(script).toContain("lsregister -f");
     expect(swapScript({ pid: 1, from: "/a", to: "/b", log: "/c", reopen: false })).not.toContain(
       "/usr/bin/open",
     );
+    const renamed = swapScript({
+      pid: 7,
+      from: "/tmp/new/YaYa.app",
+      to: "/Applications/Tide.app",
+      target: "/Applications/YaYa.app",
+      log: "/tmp/swap.log",
+      reopen: true,
+    });
+    expect(renamed).toContain(`mv '/tmp/new/YaYa.app' '/Applications/YaYa.app'`);
+    expect(renamed).toContain(`/usr/bin/open '/Applications/YaYa.app'`);
   });
 });
