@@ -112,6 +112,19 @@ jobs:
           # electron-builder writes the nightly feed; the stable track reads the same build.
           cp release-tide/nightly-mac.yml release-tide/latest-mac.yml
 
+      - name: Verify the packaged app starts
+        if: steps.sync.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          packages=(release-tide/*.zip)
+          [[ "${#packages[@]}" -eq 1 && -f "${packages[0]}" ]]
+          launch_dir="$(mktemp -d "$RUNNER_TEMP/tide-launch.XXXXXX")"
+          ditto -x -k "${packages[0]}" "$launch_dir"
+          app="$launch_dir/Tide.app"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
+          node scripts/smoke-desktop-app.ts --executable "$app/Contents/MacOS/$executable" \
+            --artifacts-dir "$RUNNER_TEMP/tide-launch-check"
+
       - name: Publish
         if: steps.sync.outputs.build == 'true'
         env:

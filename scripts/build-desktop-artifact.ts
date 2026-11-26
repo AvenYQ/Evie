@@ -2881,11 +2881,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       icon: "icon.icns",
       category: "public.app-category.developer-tools",
       extendInfo: {
-        // Existing installations look for Tide.app in the update zip.
-        ...(weftDisplayName && {
-          CFBundleDisplayName: weftDisplayName,
-          CFBundleName: weftDisplayName,
-        }),
+        // Electron uses CFBundleName to find the matching Helper app.
+        ...(weftDisplayName && { CFBundleDisplayName: weftDisplayName }),
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
         NSLocalNetworkUsageDescription:
