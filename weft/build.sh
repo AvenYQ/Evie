@@ -11,6 +11,8 @@ export PATH="$REPO/node_modules/.bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
 # 本地包也要能自己更新：electron-builder 只在有 publish 配置时才往包里写 app-update.yml，而 publish 仓库是从这个环境变量读的（CI 里由 GITHUB_REPOSITORY 提供）。
 export T3CODE_DESKTOP_UPDATE_REPOSITORY="AvenYQ/Tide"
+source "$REPO/weft/connect-env.sh"
+weft_load_connect_env "$REPO"
 # 版本号带 nightly 后缀，更新通道才和已安装的 nightly 版一致（否则会报 track mismatch）。
 VERSION="$(node -p "require('./apps/desktop/package.json').version")-nightly.$(date -u +%Y%m%d).$(date -u +%s)"
 
@@ -29,6 +31,7 @@ ditto -x -k "$ZIP" "$UNPACKED"
 APP="$(find "$UNPACKED" -maxdepth 1 -name "$APP_NAME.app" -type d | head -1)"
 [[ -n "$APP" ]] || { echo "✗ zip 里没找到 $APP_NAME.app" >&2; exit 1; }
 [[ -f "$APP/Contents/Resources/app-update.yml" ]] || { echo "✗ 包内没有 app-update.yml，装上也更新不了" >&2; exit 1; }
+weft_verify_connect_in_app "$APP"
 
 # ps, not pgrep: pgrep can miss the running app from sandboxed shells.
 # grep without -q reads all of ps's output, so pipefail never sees a SIGPIPE from ps.

@@ -105,6 +105,8 @@ jobs:
           core="${tag#v}"; core="${core%%-*}"
           version="${core}-nightly.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          source weft/connect-env.sh
+          weft_load_connect_env "$PWD"
           WEFT_PRODUCT_NAME="YaYa" WEFT_DISPLAY_NAME="YaYa" WEFT_MAC_ICON_PNG="weft/assets/yaya-macos-1024.png" \
             node scripts/build-desktop-artifact.ts --platform mac --target zip --arch arm64 \
             --build-version "$version" --output-dir release-tide
@@ -124,6 +126,9 @@ jobs:
           executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Contents/Info.plist")" == "YaYa" ]]
           [[ -f "$app/Contents/Resources/icon.icns" ]]
+          source weft/connect-env.sh
+          weft_load_connect_env "$PWD"
+          weft_verify_connect_in_app "$app"
           node scripts/smoke-desktop-app.ts --executable "$app/Contents/MacOS/$executable" \
             --brand YaYa --artifacts-dir "$RUNNER_TEMP/tide-launch-check"
 
