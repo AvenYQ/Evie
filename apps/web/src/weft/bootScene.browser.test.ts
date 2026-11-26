@@ -9,7 +9,7 @@ function mount({ errorFirst = false, logoStyle = "width:64px;height:64px;display
   const root = document.createElement("div");
   root.id = "root";
   root.innerHTML = `<div id="boot-shell" style="background: inherit; display:flex; height: 300px; align-items:center; justify-content:center">
-    <div id="boot-shell-card">${errorFirst ? `<div id="boot-error"></div>` : ""}<img id="boot-shell-logo" src="/weft-boot-mark.svg" alt="Tide" style="${logoStyle}" /></div>
+    <div id="boot-shell-card">${errorFirst ? `<div id="boot-error"></div>` : ""}<img id="boot-shell-logo" src="/src/weft/kiki-mark.svg" alt="KiKi" style="${logoStyle}" /></div>
   </div>`;
   document.body.append(root);
   const stop = startWeftBootScene();
@@ -50,7 +50,7 @@ describe("startWeftBootScene", () => {
     expect(getComputedStyle(cover).pointerEvents).toBe("none");
   });
 
-  it("stays until the app draws something, then the tide comes in and the cover leaves", async () => {
+  it("stays until the app draws something, then blinks once and fades out", async () => {
     using scene = mount();
     const cover = scene.cover()!;
     scene.appears("<div></div>");
@@ -59,10 +59,14 @@ describe("startWeftBootScene", () => {
 
     scene.appears();
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(4);
+      expect(animationsIn(cover)).toHaveLength(2);
     });
-    // Three waves move; the app itself is never transformed or faded.
-    expect(cover.querySelectorAll("[data-weft-boot-wave]")).toHaveLength(3);
+    const eyes = cover.querySelector("[data-weft-boot-eyes]")!;
+    const [blink] = eyes.getAnimations();
+    expect(blink!.effect?.getTiming().iterations).toBe(1);
+    expect((blink!.effect as KeyframeEffect).getKeyframes().map((frame) => frame.transform)).toEqual(
+      ["scaleY(1)", "scaleY(0.04)", "scaleY(0.04)", "scaleY(1)"],
+    );
     expect(getComputedStyle(scene.root).transform).toBe("none");
     expect(getComputedStyle(scene.root).opacity).toBe("1");
 
@@ -149,7 +153,7 @@ describe("startWeftBootScene", () => {
     expect(animationsIn(cover)).toHaveLength(0);
     // Past the 5s fallback, plus the two frames it waits before playing.
     vi.advanceTimersByTime(200);
-    expect(animationsIn(cover)).toHaveLength(4);
+    expect(animationsIn(cover)).toHaveLength(2);
   });
 
   it("centers the mark when the logo has not been laid out yet", () => {
@@ -172,7 +176,7 @@ describe("startWeftBootScene", () => {
     visibility.mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(4);
+      expect(animationsIn(cover)).toHaveLength(2);
     });
   });
 

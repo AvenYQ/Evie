@@ -26,7 +26,9 @@ const publicConfigDefine = {
     repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
   ),
   // Weft: the packaged personal build shows its own name (set by weft/build.sh).
-  __WEFT_APP_NAME__: JSON.stringify(process.env.WEFT_PRODUCT_NAME?.trim() ?? ""),
+  __WEFT_APP_NAME__: JSON.stringify(
+    process.env.WEFT_DISPLAY_NAME?.trim() || process.env.WEFT_PRODUCT_NAME?.trim() || "",
+  ),
 };
 
 const PAGE_WORLD_MODULE = /[\\/]src[\\/]preview[\\/]PageWorld\.ts$/;

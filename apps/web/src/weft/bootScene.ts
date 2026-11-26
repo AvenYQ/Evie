@@ -1,17 +1,10 @@
-// Weft: startup scene. React swaps the stock #boot-shell out in one frame, so before it mounts this
-// covers the shell with a body-level copy; once the app has drawn, the tide comes in and the cover
-// opens. Only the cover moves: transforming #root breaks the theme's fixed backgrounds and blur.
+import kikiMark from "./kiki-mark.svg?raw";
 
-const WAVE_MS = 550;
-const WAVE_STAGGER_MS = 80;
-const WAVE_EASE = "cubic-bezier(0.37, 0, 0.18, 1)";
-// The front layer nearly fills the circle; each layer also drifts left so the crests travel.
-const RISE = [170, 215, 260] as const;
-const DRIFT = [150, 175, 200] as const;
-// The cover starts opening while the last wave is still arriving, so there is no pause between them.
-const OPEN_DELAY_MS = 520;
-const OPEN_MS = 450;
-const OPEN_EASE = "cubic-bezier(0.45, 0, 0.55, 1)";
+// The body-level cover survives React replacing the shell without transforming the app beneath it.
+const BLINK_MS = 250;
+const BLINK_DELAY_MS = 70;
+const FADE_DELAY_MS = 260;
+const FADE_MS = 210;
 const REDUCED_MS = 160;
 // Some first screens render nothing while they decide (FirstRunGate waits up to 4s after settings
 // hydrate); after this long the cover leaves anyway.
@@ -21,18 +14,6 @@ const READY =
 // Only content that is actually on screen counts (not inside a hidden or aria-hidden container).
 const isShown = (element: Element) =>
   element.getClientRects().length > 0 && element.closest("[hidden], [aria-hidden='true']") === null;
-
-// Same geometry as the app icon and public/weft-boot-mark.svg; the waves extend one period past
-// both sides so they can drift without showing an edge.
-const WAVE_COLORS = ["#A89CF7", "#6650E8", "#3A2DB4"] as const;
-const WAVE_TOPS = [470, 570, 670] as const;
-const wavePath = (y: number) =>
-  `M-212 ${y}${" c90.5 -73.15 90.5 -73.15 181 0 s90.5 73.15 181 0".repeat(4)} V1100 H-212 Z`;
-const MARK = `<svg viewBox="212 212 600 600" width="100%" height="100%" aria-hidden="true" style="display:block">
-<defs><clipPath id="weft-boot-clip"><circle cx="512" cy="512" r="300"/></clipPath></defs>
-<g clip-path="url(#weft-boot-clip)"><rect x="212" y="212" width="600" height="600" fill="#DCD6FB"/>
-${WAVE_TOPS.map((y, i) => `<path data-weft-boot-wave d="${wavePath(y)}" fill="${WAVE_COLORS[i]}"/>`).join("")}
-</g></svg>`;
 
 function opaqueBackground(view: Window, elements: ReadonlyArray<Element | null>) {
   for (const element of elements) {
@@ -72,7 +53,7 @@ export function startWeftBootScene(doc: Document = document) {
   mark.style.height = `${size}px`;
   mark.style.left = `calc(50% + ${dx - size / 2}px)`;
   mark.style.top = `calc(50% + ${dy - size / 2}px)`;
-  mark.innerHTML = MARK;
+  mark.innerHTML = kikiMark;
   overlay.append(mark);
   doc.body.append(overlay);
 
@@ -111,20 +92,23 @@ export function startWeftBootScene(doc: Document = document) {
           .finished.then(finish, finish);
         return;
       }
-      overlay.querySelectorAll("[data-weft-boot-wave]").forEach((wave, i) => {
+      const eyes = mark.querySelector("[data-weft-boot-eyes]");
+      if (eyes !== null) {
         play(
-          wave,
+          eyes,
           [
-            { transform: "translate(0px, 0px)" },
-            { transform: `translate(${-(DRIFT[i] ?? 0)}px, ${-(RISE[i] ?? 0)}px)` },
+            { transform: "scaleY(1)", offset: 0, easing: "ease-in" },
+            { transform: "scaleY(0.04)", offset: 0.32 },
+            { transform: "scaleY(0.04)", offset: 0.44, easing: "ease-out" },
+            { transform: "scaleY(1)", offset: 1 },
           ],
-          { duration: WAVE_MS, delay: i * WAVE_STAGGER_MS, easing: WAVE_EASE },
+          { duration: BLINK_MS, delay: BLINK_DELAY_MS, iterations: 1 },
         );
-      });
+      }
       play(overlay, [{ opacity: 1 }, { opacity: 0 }], {
-        duration: OPEN_MS,
-        delay: OPEN_DELAY_MS,
-        easing: OPEN_EASE,
+        duration: FADE_MS,
+        delay: FADE_DELAY_MS,
+        easing: "ease-out",
       }).finished.then(finish, finish);
     } catch {
       finish();

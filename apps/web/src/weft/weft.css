@@ -10,11 +10,6 @@
   --weft-dur-hover: 150ms;
   --weft-dur-state: 200ms;
   --weft-dur-layout: 250ms;
-  /* Tide brand mark (same colors as the app icon). */
-  --tide-mark-sky: #dcd6fb;
-  --tide-mark-back: #a89cf7;
-  --tide-mark-mid: #6650e8;
-  --tide-mark-front: #3a2db4;
 }
 
 /* Theme skins may declare --weft-tick-color to override the default accent color. */
@@ -30,8 +25,14 @@
 [data-weft-boot-mark] {
   position: absolute;
 }
-[data-weft-boot-wave] {
-  will-change: transform;
+[data-weft-boot-mark] > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+[data-weft-boot-eyes] {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 /* Dialog & Sheet motion unified onto Weft's drawer easing without editing official UI files. */

@@ -2875,11 +2875,17 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   if (platform === "mac") {
     const path = yield* Path.Path;
     const repoRoot = yield* RepoRoot;
+    const weftDisplayName = process.env.WEFT_DISPLAY_NAME?.trim();
     buildConfig.mac = {
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
       category: "public.app-category.developer-tools",
       extendInfo: {
+        // Existing installations look for Tide.app in the update zip.
+        ...(weftDisplayName && {
+          CFBundleDisplayName: weftDisplayName,
+          CFBundleName: weftDisplayName,
+        }),
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
         NSLocalNetworkUsageDescription:

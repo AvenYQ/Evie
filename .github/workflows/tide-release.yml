@@ -105,7 +105,7 @@ jobs:
           core="${tag#v}"; core="${core%%-*}"
           version="${core}-nightly.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          WEFT_PRODUCT_NAME="Tide" WEFT_MAC_ICON_PNG="weft/assets/tide-macos-1024.png" \
+          WEFT_PRODUCT_NAME="Tide" WEFT_DISPLAY_NAME="KiKi" WEFT_MAC_ICON_PNG="weft/assets/kiki-macos-1024.png" \
             node scripts/build-desktop-artifact.ts --platform mac --target zip --arch arm64 \
             --build-version "$version" --output-dir release-tide
           ls -la release-tide
@@ -122,7 +122,7 @@ jobs:
           git push origin "HEAD:$BRANCH"
           notes="$(printf '基于官方 T3 Code %s。\n\nTide 提交：%s' "$tag" "$(git rev-parse --short HEAD)")"
           gh release create -R "$GITHUB_REPOSITORY" "v$version" --target "$(git rev-parse HEAD)" \
-            --title "Tide $version" --notes "$notes" \
+            --title "KiKi $version" --notes "$notes" \
             release-tide/*.zip release-tide/*.blockmap release-tide/*-mac.yml
 
       - name: Report a failed check or build

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Weft：打包 macOS 应用并安装到 /Applications/Tide.app（Weft 是代码分支名，Tide 是看得到的应用名）
+# Weft：打包 KiKi 并安装到 /Applications/Tide.app（沿用现有更新所需的包名）
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,7 +11,7 @@ export PATH="$REPO/node_modules/.bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
 pnpm install --frozen-lockfile
 rm -rf "$OUT"
-WEFT_PRODUCT_NAME="$APP_NAME" WEFT_MAC_ICON_PNG="weft/assets/tide-macos-1024.png" node scripts/build-desktop-artifact.ts \
+WEFT_PRODUCT_NAME="$APP_NAME" WEFT_DISPLAY_NAME="KiKi" WEFT_MAC_ICON_PNG="weft/assets/kiki-macos-1024.png" node scripts/build-desktop-artifact.ts \
   --platform mac --target dir --arch "$(uname -m | sed 's/x86_64/x64/')" --output-dir "$OUT"
 
 APP="$(find "$OUT" -maxdepth 3 -name "$APP_NAME.app" -type d | head -1)"
