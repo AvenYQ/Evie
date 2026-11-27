@@ -64,16 +64,22 @@ try {
     step = `finding "${THREAD_TITLE}" in the sidebar`;
     const thread = page.locator("li[data-thread-item]", { hasText: THREAD_TITLE });
     await thread.waitFor({ timeout: STEP_TIMEOUT_MS });
-    step = "opening the thread";
-    await thread.click();
-    await page.getByText(THREAD_MESSAGE).waitFor({ timeout: STEP_TIMEOUT_MS });
     const brand = values.brand;
     if (brand !== undefined) {
-      step = `verifying "${brand}" branding`;
+      // Desktop titles drop the app name once a thread is open ("Project / Thread"), so check it first.
+      step = `verifying "${brand}" in the window title`;
       await page.waitForFunction((name) => document.title.includes(name), brand, {
         timeout: STEP_TIMEOUT_MS,
       });
-      await page.getByRole("link", { name: brand, exact: true }).waitFor({ timeout: STEP_TIMEOUT_MS });
+    }
+    step = "opening the thread";
+    await thread.click();
+    await page.getByText(THREAD_MESSAGE).waitFor({ timeout: STEP_TIMEOUT_MS });
+    if (brand !== undefined) {
+      step = `verifying "${brand}" branding`;
+      await page
+        .getByRole("link", { name: brand, exact: true })
+        .waitFor({ timeout: STEP_TIMEOUT_MS });
       const url = new URL("/.well-known/oauth-protected-resource/mcp", page.url());
       const metadata = await page.request.get(url.href);
       if (!metadata.ok() || (await metadata.json()).resource_name !== brand) {

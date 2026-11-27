@@ -13,8 +13,12 @@ export PATH="$REPO/node_modules/.bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 export T3CODE_DESKTOP_UPDATE_REPOSITORY="AvenYQ/Tide"
 source "$REPO/weft/connect-env.sh"
 weft_load_connect_env "$REPO"
-# 版本号带 nightly 后缀，更新通道才和已安装的 nightly 版一致（否则会报 track mismatch）。
-VERSION="$(node -p "require('./apps/desktop/package.json').version")-nightly.$(date -u +%Y%m%d).$(date -u +%s)"
+# 版本号带 nightly 后缀，更新通道才和已安装的 nightly 版一致（否则会报 track mismatch）；规则见 weft/version.sh。
+source "$REPO/weft/version.sh"
+# 先拉最新的 tag，版本号的主版本才和 CI 发布的一致；离线时用本地已有的 tag。
+git fetch -q --tags origin 2>/dev/null || true
+git fetch -q --no-tags upstream 'refs/tags/v*-nightly.*:refs/tags/v*-nightly.*' 2>/dev/null || true
+VERSION="$(weft_nightly_version)"
 
 pnpm install --frozen-lockfile
 rm -rf "$OUT"

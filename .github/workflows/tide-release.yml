@@ -102,8 +102,8 @@ jobs:
         id: build
         run: |
           tag="${{ steps.sync.outputs.tag }}"
-          core="${tag#v}"; core="${core%%-*}"
-          version="${core}-nightly.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
+          source weft/version.sh
+          version="$(weft_nightly_version "$tag")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           source weft/connect-env.sh
           weft_load_connect_env "$PWD"
