@@ -12987,7 +12987,7 @@
   "3ee30a50b70fffab": "Retirée par {by} : {reason}",
   "92e129bf413a1220": "retirée",
   "006515c2ac7b8065": "Impossible de changer le dossier du projet",
-  "b448f1e72c138d70": "« {title} » utilise déjà ce dossier. Archivez-le ou supprimez-le d’abord.",
+  "4aae01a50dbefcbf": "« {title} » utilise déjà ce dossier.",
   "10ea77d0072ce29d": "Changer le dossier de {path}",
   "e444e8f746452fb7": "Changer de dossier…"
 }

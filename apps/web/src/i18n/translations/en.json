@@ -12996,7 +12996,7 @@
   "3ee30a50b70fffab": "Withdrawn by {by}: {reason}",
   "92e129bf413a1220": "withdrawn",
   "006515c2ac7b8065": "Failed to change project folder",
-  "b448f1e72c138d70": "\"{title}\" already uses this folder. Archive or remove it first.",
+  "4aae01a50dbefcbf": "\"{title}\" already uses this folder.",
   "10ea77d0072ce29d": "Change folder for {path}",
   "e444e8f746452fb7": "Change folder…"
 }

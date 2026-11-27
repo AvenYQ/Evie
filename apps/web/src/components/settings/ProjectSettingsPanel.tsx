@@ -465,20 +465,16 @@ function ProjectDetail({
     }
     const owner = findProjectOwningFolder(
       projects.filter(
-        (project) =>
-          project.environmentId === member.environmentId &&
-          project.id !== member.id &&
-          project.archivedAt == null,
+        (project) => project.environmentId === member.environmentId && project.id !== member.id,
       ),
       workspaceRoot,
     );
+    // The server keeps a folder with its project until that project is removed, archived or not.
     if (owner) {
       toastManager.add({
         type: "warning",
         title: failureTitle,
-        description: gt('"{title}" already uses this folder. Archive or remove it first.', {
-          title: owner.title,
-        }),
+        description: gt('"{title}" already uses this folder.', { title: owner.title }),
       });
       return;
     }

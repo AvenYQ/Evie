@@ -138,7 +138,7 @@ export function findProjectByPath<T extends { workspaceRoot?: string; cwd?: stri
 /**
  * The project a folder being added already belongs to: as its root, or as a folder someone added
  * to it. Repositories the server discovered inside a root can still become projects of their own.
- * An active project wins over an archived one that a moved project left on the same folder.
+ * An active project wins over an archived one.
  */
 export function findProjectOwningFolder<
   T extends {
