@@ -12992,5 +12992,9 @@
   "201490988858b511": "återkallad av {by}",
   "99451a5d2d40440f": "Återkallad av {by}.",
   "3ee30a50b70fffab": "Återkallad av {by}: {reason}",
-  "92e129bf413a1220": "återkallad"
+  "92e129bf413a1220": "återkallad",
+  "006515c2ac7b8065": "Det gick inte att byta projektmapp",
+  "b448f1e72c138d70": "”{title}” använder redan den här mappen. Arkivera eller ta bort det först.",
+  "10ea77d0072ce29d": "Byt mapp för {path}",
+  "e444e8f746452fb7": "Byt mapp…"
 }

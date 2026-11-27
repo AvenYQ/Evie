@@ -163,7 +163,7 @@ import {
 } from "../lib/chatThreadActions";
 import {
   appendBrowsePathSegment,
-  findProjectByPath,
+  findProjectOwningFolder,
   getBrowseDirectoryPath,
   hasTrailingPathSeparator,
   inferProjectTitleFromPath,
@@ -2060,7 +2060,7 @@ function OpenCommandPaletteDialog(props: {
     const cwd = resolveProjectPathForDispatch(rawCwd, input.currentProjectCwd);
     if (cwd.length === 0) return;
 
-    const existing = findProjectByPath(
+    const existing = findProjectOwningFolder(
       projects.filter((project) => project.environmentId === input.environmentId),
       cwd,
     );

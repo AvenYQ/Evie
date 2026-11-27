@@ -6,7 +6,11 @@ import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
 import { useEnvironmentsWithScope } from "../../state/session";
 import { mapAtomCommandResult, settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { planProjectRemoval } from "@t3tools/client-runtime/state/projects";
+import {
+  findProjectOwningFolder,
+  normalizeProjectPathForComparison,
+  planProjectRemoval,
+} from "@t3tools/client-runtime/state/projects";
 import { type EnvironmentId, type SidebarProjectGroupingMode } from "@t3tools/contracts";
 import {
   checkProjectAccess,
@@ -31,7 +35,7 @@ import {
   type SidebarProjectSnapshot,
 } from "../../sidebarProjectGrouping";
 import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
-import { useThreadShells, waitForProjectRemoval } from "../../state/entities";
+import { useProjects, useThreadShells, waitForProjectRemoval } from "../../state/entities";
 import { refreshProjectFaviconUrl } from "../../state/assets";
 import { projectEnvironment } from "../../state/projects";
 import { ProjectFavicon } from "../ProjectFavicon";
@@ -286,6 +290,7 @@ function ProjectDetail({
       (member) => environmentById.get(member.environmentId)?.serverConfig != null,
     ) ?? group.memberProjects[0]!;
   const threads = useThreadShells();
+  const projects = useProjects();
   const deleteProject = useOrchestrationCommand(projectEnvironment.delete, {
     reportFailure: false,
   });
@@ -439,6 +444,46 @@ function ProjectDetail({
     if (members) members.push(member);
     else checkoutsByEnvironment.set(member.environmentId, [member]);
   }
+  // The folder picker browses this machine, so only local checkouts can be moved from here.
+  const canChangeFolder = (member: SidebarProjectGroupMember) =>
+    typeof window !== "undefined" &&
+    window.desktopBridge !== undefined &&
+    member.environmentId === primaryEnvironmentId;
+  const changeFolder = async (member: SidebarProjectGroupMember) => {
+    const failureTitle = gt("Failed to change project folder");
+    if (checkProjectAccess([member], failureTitle)) return;
+    const api = readLocalApi();
+    if (!api) return;
+    const picked = await settlePromise(() => api.dialogs.pickFolder());
+    if (picked._tag === "Failure" || !picked.value) return;
+    const workspaceRoot = picked.value;
+    if (
+      normalizeProjectPathForComparison(workspaceRoot) ===
+      normalizeProjectPathForComparison(member.workspaceRoot)
+    ) {
+      return;
+    }
+    const owner = findProjectOwningFolder(
+      projects.filter(
+        (project) =>
+          project.environmentId === member.environmentId &&
+          project.id !== member.id &&
+          project.archivedAt == null,
+      ),
+      workspaceRoot,
+    );
+    if (owner) {
+      toastManager.add({
+        type: "warning",
+        title: failureTitle,
+        description: gt('"{title}" already uses this folder. Archive or remove it first.', {
+          title: owner.title,
+        }),
+      });
+      return;
+    }
+    await updateProjectGroup([member], { workspaceRoot }, failureTitle);
+  };
   // A lone checkout is removed from the Danger section, but it still needs its grouping
   // rule here so "Keep separate" can be undone.
   const checkoutControls = (member: SidebarProjectGroupMember) => (
@@ -446,6 +491,17 @@ function ProjectDetail({
       <div className="min-w-0 flex-1 @min-[32rem]/settings-row:w-72 @min-[32rem]/settings-row:flex-none">
         <CheckoutGroupingSelect member={member} />
       </div>
+      {canChangeFolder(member) ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!editableIds.has(member.environmentId)}
+          onClick={() => void changeFolder(member)}
+          aria-label={gt("Change folder for {path}", { path: member.workspaceRoot })}
+        >
+          {gt("Change folder…")}
+        </Button>
+      ) : null}
       {hasMultipleCheckouts ? (
         <Button
           size="sm"

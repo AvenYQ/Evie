@@ -25,7 +25,7 @@ import * as Order from "effect/Order";
 import {
   appendBrowsePathSegment,
   ensureBrowseDirectoryPath,
-  findProjectByPath,
+  findProjectOwningFolder,
   getBrowseParentPath,
   inferProjectTitleFromPath,
   isExplicitRelativeProjectPath,
@@ -409,7 +409,7 @@ export function findExistingAddProject(input: {
   readonly path: string;
 }): EnvironmentProject | null {
   return (
-    findProjectByPath(
+    findProjectOwningFolder(
       input.projects.filter((project) => project.environmentId === input.environmentId),
       input.path,
     ) ?? null

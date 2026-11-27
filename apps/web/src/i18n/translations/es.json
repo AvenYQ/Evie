@@ -12980,5 +12980,9 @@
   "201490988858b511": "retirada por {by}",
   "99451a5d2d40440f": "Retirada por {by}.",
   "3ee30a50b70fffab": "Retirada por {by}: {reason}",
-  "92e129bf413a1220": "retirada"
+  "92e129bf413a1220": "retirada",
+  "006515c2ac7b8065": "No se pudo cambiar la carpeta del proyecto",
+  "b448f1e72c138d70": "\"{title}\" ya usa esta carpeta. Archívalo o quítalo primero.",
+  "10ea77d0072ce29d": "Cambiar la carpeta de {path}",
+  "e444e8f746452fb7": "Cambiar carpeta…"
 }

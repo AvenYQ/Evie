@@ -135,6 +135,53 @@ export function findProjectByPath<T extends { workspaceRoot?: string; cwd?: stri
   });
 }
 
+/**
+ * The project a folder being added already belongs to: as its root, or as a folder someone added
+ * to it. Repositories the server discovered inside a root can still become projects of their own.
+ * An active project wins over an archived one that a moved project left on the same folder.
+ */
+export function findProjectOwningFolder<
+  T extends {
+    workspaceRoot?: string;
+    cwd?: string;
+    readonly archivedAt?: string | null | undefined;
+    readonly trackedFolders?:
+      | ReadonlyArray<{ readonly path: string; readonly discovered?: boolean | undefined }>
+      | undefined;
+  },
+>(projects: ReadonlyArray<T>, candidatePath: string): T | undefined {
+  const active = projects.filter((project) => project.archivedAt == null);
+  return (
+    findProjectOwningFolderIn(active, candidatePath) ??
+    findProjectOwningFolderIn(
+      projects.filter((project) => project.archivedAt != null),
+      candidatePath,
+    )
+  );
+}
+
+function findProjectOwningFolderIn<
+  T extends {
+    workspaceRoot?: string;
+    cwd?: string;
+    readonly trackedFolders?:
+      | ReadonlyArray<{ readonly path: string; readonly discovered?: boolean | undefined }>
+      | undefined;
+  },
+>(projects: ReadonlyArray<T>, candidatePath: string): T | undefined {
+  const byRoot = findProjectByPath(projects, candidatePath);
+  if (byRoot) return byRoot;
+  const normalizedCandidate = normalizeProjectPathForComparison(candidatePath);
+  if (normalizedCandidate.length === 0) return undefined;
+  return projects.find((project) =>
+    project.trackedFolders?.some(
+      (folder) =>
+        folder.discovered !== true &&
+        normalizeProjectPathForComparison(folder.path) === normalizedCandidate,
+    ),
+  );
+}
+
 export function isScratchProject(
   project: { readonly workspaceRoot: string; readonly isScratch?: true },
   scratchWorkspaceRoot: string | null | undefined,

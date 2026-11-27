@@ -1,6 +1,6 @@
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import {
-  findProjectByPath,
+  findProjectOwningFolder,
   inferProjectTitleFromPath,
 } from "@t3tools/client-runtime/state/projects";
 import { useAtomValue } from "@effect/atom-react";
@@ -54,7 +54,7 @@ export function useOpenLocalWorkspace() {
         };
       },
       findProject: (environmentId, workspaceRoot) =>
-        findProjectByPath(
+        findProjectOwningFolder(
           readProjects().filter((project) => project.environmentId === environmentId),
           workspaceRoot,
         ) ?? null,
