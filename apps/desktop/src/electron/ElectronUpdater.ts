@@ -166,7 +166,7 @@ export const make = ElectronUpdater.of({
   downloadUpdate: Effect.suspend(() => {
     const channel = autoUpdater.channel;
     return Effect.tryPromise({
-      // Weft: Tide installs its own macOS updates (see weft/macSelfUpdate.ts).
+      // Weft: Evie installs its own macOS updates (see weft/macSelfUpdate.ts).
       try: async () => {
         if (isWeftMacSelfUpdate) await downloadMacUpdate(autoUpdater);
         else await autoUpdater.downloadUpdate();

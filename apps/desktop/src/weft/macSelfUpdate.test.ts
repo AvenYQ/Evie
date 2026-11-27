@@ -9,29 +9,29 @@ const file = (name: string) => ({
 
 describe("macSelfUpdate", () => {
   it("finds the app bundle the process runs from", () => {
-    expect(bundleOf("/Applications/Tide.app/Contents/MacOS/Tide")).toBe("/Applications/Tide.app");
+    expect(bundleOf("/Applications/Evie.app/Contents/MacOS/Evie")).toBe("/Applications/Evie.app");
     expect(bundleOf("/usr/local/bin/node")).toBeUndefined();
   });
 
   it("prefers the zip built for this architecture", () => {
-    const files = [file("Tide-1-x64-mac.zip"), file("Tide-1-arm64-mac.zip"), file("Tide-1.dmg")];
-    expect(pickMacZip(files, "arm64")?.info.url).toBe("Tide-1-arm64-mac.zip");
-    expect(pickMacZip([file("Tide-1-mac.zip")], "arm64")?.info.url).toBe("Tide-1-mac.zip");
-    expect(pickMacZip([file("Tide-1.dmg")], "arm64")).toBeUndefined();
+    const files = [file("Evie-1-x64-mac.zip"), file("Evie-1-arm64-mac.zip"), file("Evie-1.dmg")];
+    expect(pickMacZip(files, "arm64")?.info.url).toBe("Evie-1-arm64-mac.zip");
+    expect(pickMacZip([file("Evie-1-mac.zip")], "arm64")?.info.url).toBe("Evie-1-mac.zip");
+    expect(pickMacZip([file("Evie-1.dmg")], "arm64")).toBeUndefined();
   });
 
   it("keeps the old bundle until the new one is in place, and reopens only when asked", () => {
     const script = swapScript({
       pid: 42,
-      from: "/tmp/new/Tide.app",
-      to: "/Applications/Tide's.app",
+      from: "/tmp/new/Evie.app",
+      to: "/Applications/Evie's.app",
       log: "/tmp/swap.log",
       reopen: true,
     });
     expect(script).toContain("while kill -0 42");
-    expect(script).toContain(`mv '/Applications/Tide'\\''s.app' "$old"`);
+    expect(script).toContain(`mv '/Applications/Evie'\\''s.app' "$old"`);
     expect(script.indexOf('rm -rf "$old"')).toBeGreaterThan(
-      script.indexOf("mv '/tmp/new/Tide.app'"),
+      script.indexOf("mv '/tmp/new/Evie.app'"),
     );
     expect(script).toContain("/usr/bin/open");
     expect(script).toContain("lsregister -f");
@@ -41,7 +41,7 @@ describe("macSelfUpdate", () => {
     const renamed = swapScript({
       pid: 7,
       from: "/tmp/new/Evie.app",
-      to: "/Applications/Tide.app",
+      to: "/Applications/Evie.app",
       target: "/Applications/Evie.app",
       log: "/tmp/swap.log",
       reopen: true,

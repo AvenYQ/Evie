@@ -1,4 +1,4 @@
-# Weft：本机打包（weft/build.sh）和 CI 发布（tide-release.yml）共用的版本号规则。
+# Weft：本机打包（weft/build.sh）和 CI 发布（evie-release.yml）共用的版本号规则。
 # 两边各算各的时候，本机包取 package.json 的 0.1.12，CI 取官方 tag 的 0.1.13，
 # 结果刚装好的本机包永远显示“有更新”。统一成：
 #   <最新官方 nightly tag 的主版本>-nightly.<UTC 日期>.<当天 UTC 第几秒>

@@ -1,8 +1,8 @@
 // @effect-diagnostics nodeBuiltinImport:off -- Weft-only installer: runs a detached shell after the app quits, outside any Effect fiber.
 // @effect-diagnostics globalDate:off -- Download speed and the backup name only need wall time.
 // @effect-diagnostics globalTimers:off globalFetch:off -- Called from electron-updater's promise API, outside any Effect fiber.
-// Weft: Tide is signed ad hoc and Squirrel.Mac only installs Developer ID builds, so on macOS
-// Tide installs its own updates. electron-updater still checks the feed; this module emits the
+// Weft: Evie is signed ad hoc and Squirrel.Mac only installs Developer ID builds, so on macOS
+// Evie installs its own updates. electron-updater still checks the feed; this module emits the
 // download-progress / update-downloaded events it would, so the update state machine is unchanged.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
@@ -25,7 +25,7 @@ export const isWeftMacSelfUpdate =
   typeof __WEFT_APP_NAME__ !== "undefined" &&
   __WEFT_APP_NAME__.length > 0;
 
-/** The bundle the running app started from: …/Tide.app/Contents/MacOS/Tide → …/Tide.app. */
+/** The bundle the running app started from: …/Evie.app/Contents/MacOS/Evie → …/Evie.app. */
 export function bundleOf(execPath: string): string | undefined {
   const at = execPath.lastIndexOf(".app/Contents/MacOS/");
   return at < 0 ? undefined : execPath.slice(0, at + 4);
@@ -117,13 +117,13 @@ export async function downloadMacUpdate(updater: unknown): Promise<void> {
   if (file === undefined) throw new Error("the release has no macOS zip");
   const bundle = bundleOf(process.execPath);
   if (bundle === undefined || bundle.includes("/AppTranslocation/")) {
-    throw new Error("Tide is not running from an installed app bundle");
+    throw new Error("Evie is not running from an installed app bundle");
   }
   await NodeFSP.access(NodePath.dirname(bundle), NodeFSP.constants.W_OK);
 
   if (prepared !== null) await removeDirectory(prepared.work);
   prepared = null;
-  const work = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "tide-update-"));
+  const work = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "evie-update-"));
   try {
     const zip = NodePath.join(work, "update.zip");
     const abort = new AbortController();
@@ -204,7 +204,7 @@ export async function downloadMacUpdate(updater: unknown): Promise<void> {
 export async function installMacUpdate(reopen: boolean, quit: () => void): Promise<void> {
   if (prepared === null) throw new Error("no downloaded update to install");
   const bundle = bundleOf(process.execPath);
-  if (bundle === undefined) throw new Error("Tide is not running from an app bundle");
+  if (bundle === undefined) throw new Error("Evie is not running from an app bundle");
   const target = NodePath.join(NodePath.dirname(bundle), NodePath.basename(prepared.app));
   const script = NodePath.join(prepared.work, "swap.sh");
   await NodeFSP.writeFile(

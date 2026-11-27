@@ -1,8 +1,8 @@
-name: Tide sync and release
+name: Evie sync and release
 
-# Keeps Tide (branch weft/main) on top of official T3 Code Nightly: once a day it merges the
-# newest official nightly tag, runs Tide's tests, builds the macOS app (Apple silicon) and
-# publishes it as a release here. The installed Tide checks these releases and offers the
+# Keeps Evie (branch weft/main) on top of official T3 Code Nightly: once a day it merges the
+# newest official nightly tag, runs Evie's tests, builds the macOS app (Apple silicon) and
+# publishes it as a release here. The installed Evie checks these releases and offers the
 # update in its sidebar. A merge that conflicts or a failing check opens an issue instead and
 # publishes nothing. A push to weft/main is built and released without merging upstream.
 #
@@ -26,7 +26,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: tide-release
+  group: evie-release
   cancel-in-progress: false
 
 env:
@@ -49,7 +49,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUILD_ONLY: ${{ github.event_name == 'push' || inputs.build_only == true }}
         run: |
-          git config user.name "tide-bot"
+          git config user.name "evie-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream "$UPSTREAM"
           git fetch --no-tags upstream main
@@ -62,11 +62,11 @@ jobs:
             exit 0
           fi
           if git merge-base --is-ancestor "$tag" HEAD; then
-            echo "Tide already contains $tag; nothing to release."
+            echo "Evie already contains $tag; nothing to release."
             echo "build=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if ! git merge --no-edit -m "Merge official $tag into Tide" "$tag"; then
+          if ! git merge --no-edit -m "Merge official $tag into Evie" "$tag"; then
             files="$(git diff --name-only --diff-filter=U)"
             git merge --abort
             title="同步官方 $tag 时有冲突"
@@ -89,7 +89,7 @@ jobs:
           toolchain: stable
           targets: aarch64-apple-darwin
 
-      - name: Check Tide
+      - name: Check Evie
         if: steps.sync.outputs.build == 'true'
         run: |
           node apps/web/node_modules/playwright/cli.js install --only-shell chromium
@@ -109,18 +109,18 @@ jobs:
           weft_load_connect_env "$PWD"
           WEFT_PRODUCT_NAME="Evie" WEFT_DISPLAY_NAME="Evie" WEFT_MAC_ICON_PNG="weft/assets/evie-macos-1024.png" WEFT_MAC_ICON_COMPOSER="weft/assets/Evie.icon" \
             node scripts/build-desktop-artifact.ts --platform mac --target zip --arch arm64 \
-            --build-version "$version" --output-dir release-tide
-          ls -la release-tide
+            --build-version "$version" --output-dir release-evie
+          ls -la release-evie
           # electron-builder writes the nightly feed; the stable track reads the same build.
-          cp release-tide/nightly-mac.yml release-tide/latest-mac.yml
+          cp release-evie/nightly-mac.yml release-evie/latest-mac.yml
 
       - name: Verify the packaged app starts
         if: steps.sync.outputs.build == 'true'
         run: |
           set -euo pipefail
-          packages=(release-tide/*.zip)
+          packages=(release-evie/*.zip)
           [[ "${#packages[@]}" -eq 1 && -f "${packages[0]}" ]]
-          launch_dir="$(mktemp -d "$RUNNER_TEMP/tide-launch.XXXXXX")"
+          launch_dir="$(mktemp -d "$RUNNER_TEMP/evie-launch.XXXXXX")"
           ditto -x -k "${packages[0]}" "$launch_dir"
           app="$launch_dir/Evie.app"
           executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
@@ -132,7 +132,7 @@ jobs:
           weft_load_connect_env "$PWD"
           weft_verify_connect_in_app "$app"
           node scripts/smoke-desktop-app.ts --executable "$app/Contents/MacOS/$executable" \
-            --brand Evie --artifacts-dir "$RUNNER_TEMP/tide-launch-check"
+            --brand Evie --artifacts-dir "$RUNNER_TEMP/evie-launch-check"
 
       - name: Publish
         if: steps.sync.outputs.build == 'true'
@@ -142,17 +142,17 @@ jobs:
           version="${{ steps.build.outputs.version }}"
           tag="${{ steps.sync.outputs.tag }}"
           git push origin "HEAD:$BRANCH"
-          notes="$(printf '基于官方 T3 Code %s。\n\nTide 提交：%s' "$tag" "$(git rev-parse --short HEAD)")"
+          notes="$(printf '基于官方 T3 Code %s。\n\nEvie 提交：%s' "$tag" "$(git rev-parse --short HEAD)")"
           gh release create -R "$GITHUB_REPOSITORY" "v$version" --target "$(git rev-parse HEAD)" \
             --title "Evie $version" --notes "$notes" \
-            release-tide/*.zip release-tide/*.blockmap release-tide/*-mac.yml
+            release-evie/*.zip release-evie/*.blockmap release-evie/*-mac.yml
 
       - name: Report a failed check or build
         if: failure() && steps.sync.outputs.build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          title="Tide 打包失败（官方 ${{ steps.sync.outputs.tag }}）"
+          title="Evie 打包失败（官方 ${{ steps.sync.outputs.tag }}）"
           if ! gh issue list -R "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number' | grep -q .; then
             gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f body="检查或打包失败，本次没有发布。日志：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > /dev/null
           fi

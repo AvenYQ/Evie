@@ -2779,7 +2779,7 @@ export function resolveDesktopWebAssetBrand(version: string): WebAssetBrand {
 }
 
 export function resolveDesktopBuildIconAssets(version: string): DesktopBuildIconAssets {
-  // Weft: Tide keeps its own icon on every channel, nightly included.
+  // Weft: Evie keeps its own icon on every channel, nightly included.
   const weftMacIconPng = process.env.WEFT_MAC_ICON_PNG?.trim();
   if (resolveDesktopUpdateChannel(version) === "nightly" && !weftMacIconPng) {
     return {

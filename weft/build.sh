@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Weft：打包 Evie 并安装到 /Applications/Evie.app（带 AvenYQ/Tide 自动更新源）
+# Weft：打包 Evie 并安装到 /Applications/Evie.app（带 AvenYQ/Evie 自动更新源）
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="Evie"
-OLD_APP_NAMES=("YaYa" "Tide" "Weft")
+OLD_APP_NAMES=("YaYa" "KiKi" "Tide" "Weft")
 OUT="$REPO/release-weft"
 cd "$REPO"
 export PATH="$REPO/node_modules/.bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
 
 # 本地包也要能自己更新：electron-builder 只在有 publish 配置时才往包里写 app-update.yml，而 publish 仓库是从这个环境变量读的（CI 里由 GITHUB_REPOSITORY 提供）。
-export T3CODE_DESKTOP_UPDATE_REPOSITORY="AvenYQ/Tide"
+export T3CODE_DESKTOP_UPDATE_REPOSITORY="AvenYQ/Evie"
 source "$REPO/weft/connect-env.sh"
 weft_load_connect_env "$REPO"
 # 版本号带 nightly 后缀，更新通道才和已安装的 nightly 版一致（否则会报 track mismatch）；规则见 weft/version.sh。
@@ -53,7 +53,7 @@ ditto "$APP" "/Applications/$APP_NAME.app"
 xattr -cr "/Applications/$APP_NAME.app"
 touch "/Applications/$APP_NAME.app"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/$APP_NAME.app" 2>/dev/null || true
-# Clean up previous bundle names from earlier iterations (Weft / Tide).
+# Clean up previous bundle names from earlier iterations (Weft / Tide / KiKi / YaYa).
 for old in "${OLD_APP_NAMES[@]}"; do
   rm -rf "/Applications/$old.app"
 done
