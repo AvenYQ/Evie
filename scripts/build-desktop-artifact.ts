@@ -2562,7 +2562,19 @@ const stageMacIcons = Effect.fn("build-desktop-artifact.stageMacIcons")(function
   });
 
   yield* generateMacIconSet(sourcePng, iconIcnsPath, tmpRoot, path, verbose);
+
+  // Weft: a layered Icon Composer icon lets macOS 26+ draw Liquid Glass from real layers instead of
+  // guessing them from the flat PNG (which left white specks along thin edges).
+  const iconComposer = resolveWeftMacIconComposer();
+  if (iconComposer) {
+    const repoRoot = yield* RepoRoot;
+    yield* fs.copy(path.join(repoRoot, iconComposer), path.join(stageResourcesDir, "icon.icon"));
+  }
 });
+
+function resolveWeftMacIconComposer(): string | undefined {
+  return process.env.WEFT_MAC_ICON_COMPOSER?.trim() || undefined;
+}
 
 export const stageDesktopDmgBackground = Effect.fn("stageDesktopDmgBackground")(function* (
   stageResourcesDir: string,
@@ -2878,7 +2890,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     const weftDisplayName = process.env.WEFT_DISPLAY_NAME?.trim();
     buildConfig.mac = {
       target: target === "dmg" ? [target, "zip"] : [target],
-      icon: "icon.icns",
+      icon: resolveWeftMacIconComposer() ? "icon.icon" : "icon.icns",
       category: "public.app-category.developer-tools",
       extendInfo: {
         // Electron uses CFBundleName to find the matching Helper app.

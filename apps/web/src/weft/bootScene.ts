@@ -1,4 +1,4 @@
-import yayaMark from "./yaya-mark.svg?raw";
+import evieMark from "./evie-mark.svg?raw";
 
 // The body-level cover survives React replacing the shell without transforming the app beneath it.
 const MARK_SIZE = 124;
@@ -6,11 +6,21 @@ const FADE_DELAY_MS = 960;
 const FADE_MS = 240;
 const REDUCED_MS = 160;
 const REVEAL_EASE = "cubic-bezier(.24,.76,.24,1)";
-const PEEK: Keyframe[] = [
-  { transform: "translate(3px, 635px)", offset: 0, easing: "cubic-bezier(.26,.15,.30,1)" },
-  { transform: "translate(-14px, 135px)", offset: 0.58, easing: "ease-out" },
-  { transform: "translate(0px, -18px)", offset: 0.84, easing: "ease-out" },
-  { transform: "translate(0px, 0px)", offset: 1 },
+// Evie crouches, hops and lands in place, then blinks; the shell already shows her at rest.
+const HOP: Keyframe[] = [
+  { transform: "translate(0px, 0px) scale(1, 1)", offset: 0, easing: "ease-in-out" },
+  {
+    transform: "translate(0px, 10px) scale(1.06, 0.92)",
+    offset: 0.2,
+    easing: "cubic-bezier(.2,.8,.3,1)",
+  },
+  {
+    transform: "translate(0px, -92px) scale(0.97, 1.04)",
+    offset: 0.55,
+    easing: "cubic-bezier(.5,0,.8,.4)",
+  },
+  { transform: "translate(0px, 6px) scale(1.04, 0.95)", offset: 0.82, easing: "ease-out" },
+  { transform: "translate(0px, 0px) scale(1, 1)", offset: 1 },
 ];
 // Some first screens render nothing while they decide (FirstRunGate waits up to 4s after settings
 // hydrate); after this long the cover leaves anyway.
@@ -44,7 +54,12 @@ export function startWeftBootScene(doc: Document = document) {
   overlay.dataset.weftBoot = "";
   overlay.setAttribute("aria-hidden", "true");
   // #boot-shell inherits a transparent background when no theme is selected; take the first real color.
-  overlay.style.backgroundColor = opaqueBackground(view, [shell, root, doc.body, doc.documentElement]);
+  overlay.style.backgroundColor = opaqueBackground(view, [
+    shell,
+    root,
+    doc.body,
+    doc.documentElement,
+  ]);
   const mark = doc.createElement("div");
   mark.dataset.weftBootMark = "";
   // Placed relative to the viewport center (where the shell centers the logo), so it stays on the
@@ -59,8 +74,7 @@ export function startWeftBootScene(doc: Document = document) {
   mark.style.height = `${size}px`;
   mark.style.left = `calc(50% + ${dx - size / 2}px)`;
   mark.style.top = `calc(50% + ${dy - size / 2}px)`;
-  mark.dataset.yayaWaiting = "";
-  mark.innerHTML = yayaMark;
+  mark.innerHTML = evieMark;
   overlay.append(mark);
   doc.body.append(overlay);
 
@@ -88,7 +102,7 @@ export function startWeftBootScene(doc: Document = document) {
   };
 
   const playPart = (part: string, frames: Keyframe[], options: KeyframeAnimationOptions) => {
-    const element = mark.querySelector(`[data-yaya-part="${part}"]`);
+    const element = mark.querySelector(`[data-evie-part="${part}"]`);
     if (element !== null) play(element, frames, { easing: REVEAL_EASE, ...options });
   };
 
@@ -100,41 +114,21 @@ export function startWeftBootScene(doc: Document = document) {
     try {
       // Animations, not CSS transitions: a theme refresh adds .no-transitions, which zeroes those.
       if (view.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        delete mark.dataset.yayaWaiting;
-        play(overlay, [{ opacity: 1 }, { opacity: 0 }], { duration: REDUCED_MS, easing: "ease-out" })
-          .finished.then(finish, finish);
+        play(overlay, [{ opacity: 1 }, { opacity: 0 }], {
+          duration: REDUCED_MS,
+          easing: "ease-out",
+        }).finished.then(finish, finish);
         return;
       }
-      const peekTiming = { duration: 500, delay: 80, easing: "linear" };
-      playPart("duck", PEEK, peekTiming);
-      playPart("bill", PEEK, peekTiming);
-      playPart("bill-overlap", [{ opacity: 0 }, { opacity: 1 }], { duration: 55, delay: 440 });
+      playPart("duck", HOP, { duration: 560, delay: 80, easing: "linear" });
       playPart(
-        "pocket",
+        "beak",
         [
-          { transform: "rotate(0deg)" },
-          { transform: "rotate(1.5deg)", offset: 0.45 },
-          { transform: "rotate(0deg)" },
+          { transform: "scale(1)" },
+          { transform: "scale(1.22)", offset: 0.45 },
+          { transform: "scale(1)" },
         ],
-        { duration: 310, delay: 205 },
-      );
-      playPart(
-        "ticket",
-        [
-          { transform: "translate(-47px, 116px) rotate(-16deg) scale(.58)", opacity: 0 },
-          { transform: "translate(6px, -13px) rotate(7deg) scale(1.04)", opacity: 1, offset: 0.68 },
-          { transform: "translate(0px, 0px) rotate(0deg) scale(1)", opacity: 1 },
-        ],
-        { duration: 280, delay: 415 },
-      );
-      playPart(
-        "spark",
-        [
-          { transform: "translate(-14px, 40px) scale(.25)", opacity: 0 },
-          { transform: "translate(0px, -4px) scale(1.12)", opacity: 1, offset: 0.65 },
-          { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
-        ],
-        { duration: 190, delay: 500 },
+        { duration: 240, delay: 520 },
       );
       const blinkFrames: Keyframe[] = [
         { transform: "scaleY(1)", offset: 0, easing: "ease-in" },
@@ -144,7 +138,6 @@ export function startWeftBootScene(doc: Document = document) {
       ];
       playPart("eye-left", blinkFrames, { duration: 150, delay: 750 });
       playPart("eye-right", blinkFrames, { duration: 150, delay: 750 });
-      delete mark.dataset.yayaWaiting;
       play(overlay, [{ opacity: 1 }, { opacity: 0 }], {
         duration: FADE_MS,
         delay: FADE_DELAY_MS,

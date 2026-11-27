@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Weft：打包 YaYa 并安装到 /Applications/YaYa.app（带 AvenYQ/Tide 自动更新源）
+# Weft：打包 Evie 并安装到 /Applications/Evie.app（带 AvenYQ/Tide 自动更新源）
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="YaYa"
-OLD_APP_NAMES=("Tide" "Weft")
+APP_NAME="Evie"
+OLD_APP_NAMES=("YaYa" "Tide" "Weft")
 OUT="$REPO/release-weft"
 cd "$REPO"
 export PATH="$REPO/node_modules/.bin:$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
@@ -18,7 +18,7 @@ VERSION="$(node -p "require('./apps/desktop/package.json').version")-nightly.$(d
 
 pnpm install --frozen-lockfile
 rm -rf "$OUT"
-WEFT_PRODUCT_NAME="$APP_NAME" WEFT_DISPLAY_NAME="$APP_NAME" WEFT_MAC_ICON_PNG="weft/assets/yaya-macos-1024.png" node scripts/build-desktop-artifact.ts \
+WEFT_PRODUCT_NAME="$APP_NAME" WEFT_DISPLAY_NAME="$APP_NAME" WEFT_MAC_ICON_PNG="weft/assets/evie-macos-1024.png" WEFT_MAC_ICON_COMPOSER="weft/assets/Evie.icon" node scripts/build-desktop-artifact.ts \
   --platform mac --target zip --arch "$(uname -m | sed 's/x86_64/x64/')" --build-version "$VERSION" --output-dir "$OUT"
 
 # 打 zip 而不是 dir：electron-builder 只在打 zip 时才把 app-update.yml 写进包里，
@@ -31,6 +31,9 @@ ditto -x -k "$ZIP" "$UNPACKED"
 APP="$(find "$UNPACKED" -maxdepth 1 -name "$APP_NAME.app" -type d | head -1)"
 [[ -n "$APP" ]] || { echo "✗ zip 里没找到 $APP_NAME.app" >&2; exit 1; }
 [[ -f "$APP/Contents/Resources/app-update.yml" ]] || { echo "✗ 包内没有 app-update.yml，装上也更新不了" >&2; exit 1; }
+# 新格式图标（Assets.car + CFBundleIconName）缺了，macOS 会把扁平图自动玻璃化，边缘出白点。
+[[ -f "$APP/Contents/Resources/Assets.car" ]] && /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$APP/Contents/Info.plist" >/dev/null \
+  || { echo "✗ 包内没有 Icon Composer 图标（Assets.car / CFBundleIconName）" >&2; exit 1; }
 weft_verify_connect_in_app "$APP"
 
 # ps, not pgrep: pgrep can miss the running app from sandboxed shells.

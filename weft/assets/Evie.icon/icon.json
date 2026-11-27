@@ -1,0 +1,23 @@
+{
+  "fill": {
+    "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [{ "image-name": "eyes.svg", "name": "eyes" }],
+      "shadow": { "kind": "neutral", "opacity": 0.35 },
+      "translucency": { "enabled": false, "value": 0.5 }
+    },
+    {
+      "layers": [
+        { "image-name": "beak.svg", "name": "beak" },
+        { "image-name": "body.svg", "name": "body" }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0.5 },
+      "translucency": { "enabled": false, "value": 0.5 }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

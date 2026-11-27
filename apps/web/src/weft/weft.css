@@ -30,27 +30,21 @@
   width: 100%;
   height: 100%;
 }
-[data-weft-boot] [data-yaya-part] {
+[data-weft-boot] [data-evie-part] {
   transform-box: view-box;
 }
-[data-weft-boot] [data-yaya-part="eye-left"],
-[data-weft-boot] [data-yaya-part="eye-right"] {
+[data-weft-boot] [data-evie-part="duck"] {
+  transform-origin: 512px 840px;
+}
+/* Eyes close from the lower lid up to the flat upper lid; the beak pops from its outer corner. */
+[data-weft-boot] [data-evie-part="eye-left"],
+[data-weft-boot] [data-evie-part="eye-right"] {
   transform-box: fill-box;
-  transform-origin: center;
+  transform-origin: 50% 0%;
 }
-[data-weft-boot] [data-yaya-part="pocket"] {
-  transform-origin: 616px 750px;
-}
-[data-weft-boot] [data-yaya-part="ticket"] {
-  transform-origin: 980px 379px;
-}
-[data-weft-boot] [data-yaya-part="spark"] {
-  transform-origin: 898px 361px;
-}
-@media (prefers-reduced-motion: no-preference) {
-  [data-yaya-waiting] [data-yaya-reveal] {
-    visibility: hidden;
-  }
+[data-weft-boot] [data-evie-part="beak"] {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
 }
 
 /* Dialog & Sheet motion unified onto Weft's drawer easing without editing official UI files. */

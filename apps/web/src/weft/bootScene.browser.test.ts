@@ -9,7 +9,7 @@ function mount({ errorFirst = false, logoStyle = "width:64px;height:64px;display
   const root = document.createElement("div");
   root.id = "root";
   root.innerHTML = `<div id="boot-shell" style="background: inherit; display:flex; height: 300px; align-items:center; justify-content:center">
-    <div id="boot-shell-card">${errorFirst ? `<div id="boot-error"></div>` : ""}<img id="boot-shell-logo" src="/src/weft/yaya-folder.svg" alt="YaYa" style="${logoStyle}" /></div>
+    <div id="boot-shell-card">${errorFirst ? `<div id="boot-error"></div>` : ""}<img id="boot-shell-logo" src="/src/weft/evie-mark.svg" alt="Evie" style="${logoStyle}" /></div>
   </div>`;
   document.body.append(root);
   const stop = startWeftBootScene();
@@ -30,7 +30,9 @@ function mount({ errorFirst = false, logoStyle = "width:64px;height:64px;display
 }
 
 const animationsIn = (element: Element) =>
-  element.getAnimations({ subtree: true }).filter((animation) => !(animation instanceof CSSTransition));
+  element
+    .getAnimations({ subtree: true })
+    .filter((animation) => !(animation instanceof CSSTransition));
 // MutationObserver callbacks run as microtasks; let them land before asserting nothing happened.
 const settleObservers = async () => {
   await Promise.resolve();
@@ -50,32 +52,29 @@ describe("startWeftBootScene", () => {
     expect(getComputedStyle(cover).pointerEvents).toBe("none");
   });
 
-  it("waits with the folder, then reveals the duck and ticket before fading out", async () => {
+  it("waits at rest, then hops, pops the beak and blinks before fading out", async () => {
     using scene = mount();
     const cover = scene.cover()!;
     scene.appears("<div></div>");
     await settleObservers();
     expect(animationsIn(cover)).toHaveLength(0);
-    const mark = cover.querySelector("[data-weft-boot-mark]")!;
-    expect(mark.hasAttribute("data-yaya-waiting")).toBe(true);
 
     scene.appears();
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(9);
+      expect(animationsIn(cover)).toHaveLength(5);
     });
-    expect(mark.hasAttribute("data-yaya-waiting")).toBe(false);
-    const duck = cover.querySelector('[data-yaya-part="duck"]')!;
-    const ticket = cover.querySelector('[data-yaya-part="ticket"]')!;
-    const leftEye = cover.querySelector('[data-yaya-part="eye-left"]')!;
-    const rightEye = cover.querySelector('[data-yaya-part="eye-right"]')!;
+    const duck = cover.querySelector('[data-evie-part="duck"]')!;
+    const beak = cover.querySelector('[data-evie-part="beak"]')!;
+    const leftEye = cover.querySelector('[data-evie-part="eye-left"]')!;
+    const rightEye = cover.querySelector('[data-evie-part="eye-right"]')!;
     expect(duck.getAnimations()[0]!.effect?.getTiming().delay).toBe(80);
-    expect(ticket.getAnimations()[0]!.effect?.getTiming().delay).toBe(415);
+    expect(beak.getAnimations()[0]!.effect?.getTiming().delay).toBe(520);
     for (const eye of [leftEye, rightEye]) {
       const [blink] = eye.getAnimations();
       expect(blink!.effect?.getTiming().iterations).toBe(1);
-      expect((blink!.effect as KeyframeEffect).getKeyframes().map((frame) => frame.transform)).toEqual(
-        ["scaleY(1)", "scaleY(0.05)", "scaleY(0.05)", "scaleY(1)"],
-      );
+      expect(
+        (blink!.effect as KeyframeEffect).getKeyframes().map((frame) => frame.transform),
+      ).toEqual(["scaleY(1)", "scaleY(0.05)", "scaleY(0.05)", "scaleY(1)"]);
     }
     expect(getComputedStyle(scene.root).transform).toBe("none");
     expect(getComputedStyle(scene.root).opacity).toBe("1");
@@ -95,14 +94,17 @@ describe("startWeftBootScene", () => {
     });
     // The rule useTheme turns on during a theme refresh (index.css): it zeroes CSS animations/transitions.
     const style = document.createElement("style");
-    style.textContent = ".no-transitions, .no-transitions * { transition-duration: 0s !important; animation-duration: 0s !important; }";
+    style.textContent =
+      ".no-transitions, .no-transitions * { transition-duration: 0s !important; animation-duration: 0s !important; }";
     document.head.append(style);
     document.documentElement.classList.add("no-transitions");
     try {
       const overlayAnimation = cover.getAnimations()[0]!;
       expect(overlayAnimation.playState).toBe("running");
       expect(Number(overlayAnimation.effect?.getComputedTiming().duration)).toBeGreaterThan(0);
-      expect(animationsIn(cover).every((animation) => animation.playState === "running")).toBe(true);
+      expect(animationsIn(cover).every((animation) => animation.playState === "running")).toBe(
+        true,
+      );
     } finally {
       document.documentElement.classList.remove("no-transitions");
       style.remove();
@@ -163,7 +165,7 @@ describe("startWeftBootScene", () => {
     expect(animationsIn(cover)).toHaveLength(0);
     // Past the 5s fallback, plus the two frames it waits before playing.
     vi.advanceTimersByTime(200);
-    expect(animationsIn(cover)).toHaveLength(9);
+    expect(animationsIn(cover)).toHaveLength(5);
   });
 
   it("centers the mark when the logo has not been laid out yet", () => {
@@ -186,7 +188,7 @@ describe("startWeftBootScene", () => {
     visibility.mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
     await vi.waitFor(() => {
-      expect(animationsIn(cover)).toHaveLength(9);
+      expect(animationsIn(cover)).toHaveLength(5);
     });
   });
 

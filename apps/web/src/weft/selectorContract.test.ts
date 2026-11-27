@@ -23,7 +23,7 @@ const CONTRACTS: ReadonlyArray<{
   {
     file: "index.html",
     source: indexHtmlSrc,
-    tokens: ['id="root"', 'id="boot-shell"', 'id="boot-shell-logo" src="/src/weft/yaya-folder.svg"'],
+    tokens: ['id="root"', 'id="boot-shell"', 'id="boot-shell-logo" src="/src/weft/evie-mark.svg"'],
   },
   {
     file: "lib/bootError.ts",

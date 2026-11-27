@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "YaYa",
-  "short_name": "YaYa",
+  "name": "Evie",
+  "short_name": "Evie",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,23 +9,23 @@
   "theme_color": "#161616",
   "icons": [
     {
-      "src": "/yaya/icon-32.png",
+      "src": "/evie/icon-32.png",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/yaya/icon-180.png",
+      "src": "/evie/icon-180.png",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "/yaya/icon-192.png",
+      "src": "/evie/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/yaya/icon-512.png",
+      "src": "/evie/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

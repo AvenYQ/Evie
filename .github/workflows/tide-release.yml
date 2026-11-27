@@ -107,7 +107,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           source weft/connect-env.sh
           weft_load_connect_env "$PWD"
-          WEFT_PRODUCT_NAME="YaYa" WEFT_DISPLAY_NAME="YaYa" WEFT_MAC_ICON_PNG="weft/assets/yaya-macos-1024.png" \
+          WEFT_PRODUCT_NAME="Evie" WEFT_DISPLAY_NAME="Evie" WEFT_MAC_ICON_PNG="weft/assets/evie-macos-1024.png" WEFT_MAC_ICON_COMPOSER="weft/assets/Evie.icon" \
             node scripts/build-desktop-artifact.ts --platform mac --target zip --arch arm64 \
             --build-version "$version" --output-dir release-tide
           ls -la release-tide
@@ -122,15 +122,17 @@ jobs:
           [[ "${#packages[@]}" -eq 1 && -f "${packages[0]}" ]]
           launch_dir="$(mktemp -d "$RUNNER_TEMP/tide-launch.XXXXXX")"
           ditto -x -k "${packages[0]}" "$launch_dir"
-          app="$launch_dir/YaYa.app"
+          app="$launch_dir/Evie.app"
           executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
-          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Contents/Info.plist")" == "YaYa" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Contents/Info.plist")" == "Evie" ]]
           [[ -f "$app/Contents/Resources/icon.icns" ]]
+          [[ -f "$app/Contents/Resources/Assets.car" ]]
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app/Contents/Info.plist"
           source weft/connect-env.sh
           weft_load_connect_env "$PWD"
           weft_verify_connect_in_app "$app"
           node scripts/smoke-desktop-app.ts --executable "$app/Contents/MacOS/$executable" \
-            --brand YaYa --artifacts-dir "$RUNNER_TEMP/tide-launch-check"
+            --brand Evie --artifacts-dir "$RUNNER_TEMP/tide-launch-check"
 
       - name: Publish
         if: steps.sync.outputs.build == 'true'
@@ -142,7 +144,7 @@ jobs:
           git push origin "HEAD:$BRANCH"
           notes="$(printf '基于官方 T3 Code %s。\n\nTide 提交：%s' "$tag" "$(git rev-parse --short HEAD)")"
           gh release create -R "$GITHUB_REPOSITORY" "v$version" --target "$(git rev-parse HEAD)" \
-            --title "YaYa $version" --notes "$notes" \
+            --title "Evie $version" --notes "$notes" \
             release-tide/*.zip release-tide/*.blockmap release-tide/*-mac.yml
 
       - name: Report a failed check or build

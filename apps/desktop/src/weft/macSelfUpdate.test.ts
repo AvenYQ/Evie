@@ -40,13 +40,13 @@ describe("macSelfUpdate", () => {
     );
     const renamed = swapScript({
       pid: 7,
-      from: "/tmp/new/YaYa.app",
+      from: "/tmp/new/Evie.app",
       to: "/Applications/Tide.app",
-      target: "/Applications/YaYa.app",
+      target: "/Applications/Evie.app",
       log: "/tmp/swap.log",
       reopen: true,
     });
-    expect(renamed).toContain(`mv '/tmp/new/YaYa.app' '/Applications/YaYa.app'`);
-    expect(renamed).toContain(`/usr/bin/open '/Applications/YaYa.app'`);
+    expect(renamed).toContain(`mv '/tmp/new/Evie.app' '/Applications/Evie.app'`);
+    expect(renamed).toContain(`/usr/bin/open '/Applications/Evie.app'`);
   });
 });
