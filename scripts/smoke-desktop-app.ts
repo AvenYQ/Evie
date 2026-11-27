@@ -80,7 +80,19 @@ try {
       await page
         .getByRole("link", { name: brand, exact: true })
         .waitFor({ timeout: STEP_TIMEOUT_MS });
-      const url = new URL("/.well-known/oauth-protected-resource/mcp", page.url());
+      // The window loads over the t3code: protocol; the backend is plain HTTP on its own port.
+      const httpBaseUrl = await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              desktopBridge: { getLocalEnvironmentBootstraps(): { httpBaseUrl: string | null }[] };
+            }
+          ).desktopBridge.getLocalEnvironmentBootstraps()[0]?.httpBaseUrl ?? null,
+      );
+      if (httpBaseUrl === null) {
+        throw new Error("Packaged app did not expose a local backend URL");
+      }
+      const url = new URL("/.well-known/oauth-protected-resource/mcp", httpBaseUrl);
       const metadata = await page.request.get(url.href);
       if (!metadata.ok() || (await metadata.json()).resource_name !== brand) {
         throw new Error(`Packaged backend did not advertise ${brand}`);
